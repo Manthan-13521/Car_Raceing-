@@ -1,4 +1,4 @@
-# Virtual Steering Control with Hand Tracking 👐
+# Virtual Steering Control with Hand Tracking 👐 🚘 👐
 
 This project leverages advanced hand tracking techniques to control virtual steering in racing games. Utilizing the power of OpenCV and the HandTrackingModule from cvzone, this Python script interprets hand gestures as steering commands, enabling an immersive gaming experience without the need for physical controllers.
 
