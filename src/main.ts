@@ -55,6 +55,14 @@ let gyroTilt = 0;
 
 const statusAuto = document.getElementById('status-auto')!;
 const statusAutoDot = document.getElementById('status-auto-dot')!;
+const speedVignette = document.getElementById('speed-vignette')!;
+const collisionFlash = document.getElementById('collision-flash')!;
+
+// Audio
+let audioCtx: AudioContext | null = null;
+let engineOsc: OscillatorNode | null = null;
+let engineGain: GainNode | null = null;
+let engineRunning = false;
 
 let overlayFps = 0;
 let fpsCounter = 0;
@@ -139,58 +147,6 @@ function drawCamOverlay(data: HandData): void {
     ctx.lineWidth = 2;
     ctx.strokeRect(2, 2, w - 4, h - 4);
   }
-}
-
-// ─── Dashboard gauge drawing ──────────────────────────────────────
-function drawDashboard(state: GameState): void {
-  const w = (gameOverlayCanvas.width = gameOverlayCanvas.clientWidth);
-  const h = (gameOverlayCanvas.height = gameOverlayCanvas.clientHeight);
-  const ctx = gameOverlayCanvas.getContext('2d');
-  if (!ctx) return;
-
-  ctx.clearRect(0, 0, w, h);
-  if (!state.started || state.gameOver) return;
-
-  const speedKmh = Math.floor(state.speed * 120);
-  const speedFrac = Math.min(1, state.speed / 3);
-
-  // Speedometer arc (bottom center)
-  const cx = w / 2;
-  const cy = h - 28;
-  const r = Math.min(w, h) * 0.16;
-
-  // Arc bg
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI * 1.1, Math.PI * 1.9);
-  ctx.stroke();
-
-  // Arc fill
-  const green = Math.floor(255 * (1 - speedFrac * 0.5));
-  const blue = Math.floor(65 + speedFrac * 50);
-  ctx.strokeStyle = `rgba(0, ${green}, ${blue}, 0.5)`;
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI * 1.1, Math.PI * 1.1 + Math.PI * 0.8 * speedFrac);
-  ctx.stroke();
-
-  // Speed text
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = 'bold 24px Consolas, monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(`${speedKmh}`, cx, cy);
-
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.font = '9px system-ui, sans-serif';
-  ctx.fillText('KM/H', cx, cy + 18);
-
-  // Gear
-  const gear = state.speed < 0.5 ? 'N' : state.speed < 0.8 ? '1' : state.speed < 1.2 ? '2' : state.speed < 1.8 ? '3' : state.speed < 2.4 ? '4' : '5';
-  ctx.fillStyle = 'rgba(0, 255, 65, 0.6)';
-  ctx.font = 'bold 14px system-ui, sans-serif';
-  ctx.fillText(`Gear ${gear}`, cx, cy - r - 12);
 }
 
 // ─── Hand skeleton in game view ────────────────────────────────────
@@ -385,7 +341,6 @@ function onHandData(data: HandData): void {
 
   drawCamOverlay(data);
   drawHandSkeleton(data);
-  updateSteeringUI(data.centerX, data.handsDetected);
   updateTelemetry(data, game.getState());
 }
 
@@ -400,12 +355,12 @@ function gameLoop(): void {
   }
 
   if (game) {
-    // Gyroscope steering (only when touch and keyboard are idle)
+    // Gyroscope + auto-accelerate combined block
     if (gyroscopeMode && !touchActive && !keys.left && !keys.right) {
       const gyroCenterX = 0.5 + gyroTilt * 0.4;
-      game.setHandData(gyroCenterX, autoAccelerate || keys.up ? 2 : 0);
-    }
-
+      const gyroHands = (autoAccelerate || keys.up) ? 2 : 0;
+      game.setHandData(gyroCenterX, gyroHands);
+    } else
     // Auto-accelerate (only when no manual input is active)
     if (autoAccelerate && !touchActive && !keys.up && !keys.left && !keys.right) {
       game.setHandData(gyroscopeMode ? 0.5 + gyroTilt * 0.4 : game.steerCenterX, 2);
@@ -420,8 +375,27 @@ function gameLoop(): void {
     game.render();
 
     const state = game.getState();
+    updateSteeringUI(game.steerCenterX, game.handsDetected);
     updateGameHUD(state);
-    drawDashboard(state);
+
+    // Juice: speed lines + vignette
+    if (state.started && !state.gameOver) {
+      drawSpeedLines(state.speed);
+      speedVignette.style.opacity = `${Math.max(0, (state.speed - 0.5) / 2.5) * 0.8}`;
+      updateEngineSound(state.speed);
+    } else {
+      stopEngineSound();
+      const ctx = gameOverlayCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, gameOverlayCanvas.width, gameOverlayCanvas.height);
+      speedVignette.style.opacity = '0';
+    }
+
+    // Juice: collision flash
+    if (state.justCollided) {
+      collisionFlash.classList.add('active');
+      playCollisionSound();
+      setTimeout(() => collisionFlash.classList.remove('active'), 500);
+    }
 
     const startOvr = document.getElementById('game-overlay')!;
     const gameOverOvr = document.getElementById('game-over-overlay')!;
@@ -516,6 +490,8 @@ function setupTouchControls(): void {
   touchAuto.addEventListener('click', () => {
     autoAccelerate = !autoAccelerate;
     touchAuto.classList.toggle('active', autoAccelerate);
+    const uBox = document.querySelector('.key-box[data-key="u"]');
+    if (uBox) uBox.classList.toggle('active', autoAccelerate);
     updateStatus();
     if (touchActive) applyTouchState();
   });
@@ -559,6 +535,136 @@ function deviceOrientationInit(): void {
   }
 }
 
+// ─── Audio Engine ──────────────────────────────────────────────────
+function initAudio(): void {
+  if (audioCtx) return;
+  try {
+    audioCtx = new AudioContext();
+    engineOsc = audioCtx.createOscillator();
+    engineGain = audioCtx.createGain();
+    engineOsc.type = 'sawtooth';
+    engineOsc.frequency.value = 60;
+    engineGain.gain.value = 0;
+    engineOsc.connect(engineGain);
+    engineGain.connect(audioCtx.destination);
+    engineOsc.start();
+    engineRunning = true;
+  } catch { /* audio not available */ }
+}
+
+function updateEngineSound(speed: number): void {
+  if (!engineOsc || !engineGain || !audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const freq = 60 + speed * 80;
+  const vol = speed > 0.1 ? 0.04 + speed * 0.02 : 0;
+  engineOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+  engineGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+}
+
+function playCollisionSound(): void {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 120;
+  gain.gain.value = 0.15;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+  osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function stopEngineSound(): void {
+  if (engineGain && audioCtx) {
+    engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.2);
+  }
+}
+
+// ─── Speed Lines ───────────────────────────────────────────────────
+let speedLineOffset = 0;
+
+function drawSpeedLines(speed: number): void {
+  const w = (gameOverlayCanvas.width = gameOverlayCanvas.clientWidth);
+  const h = (gameOverlayCanvas.height = gameOverlayCanvas.clientHeight);
+  const ctx = gameOverlayCanvas.getContext('2d');
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Dashboard gauge
+  drawGauge(ctx, w, h, speed);
+
+  // Speed lines
+  const intensity = Math.max(0, (speed - 0.5) / 2.5);
+  if (intensity <= 0) return;
+
+  const numLines = Math.floor(intensity * 30);
+  speedLineOffset += speed * 0.3;
+
+  ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.12})`;
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < numLines; i++) {
+    const seed = (i * 7919 + 31) % 1000 / 1000;
+    const seed2 = (i * 6271 + 17) % 1000 / 1000;
+    const angle = seed * Math.PI * 2;
+    const startR = (seed2 * 0.2 + 0.3) * Math.min(w, h) * 0.5;
+    const len = 30 + intensity * 80 + seed * 40;
+    const offset = (speedLineOffset + seed * 100) % (startR + len);
+
+    const x1 = w / 2 + Math.cos(angle) * offset;
+    const y1 = h / 2 + Math.sin(angle) * offset;
+    const x2 = w / 2 + Math.cos(angle) * (offset + len);
+    const y2 = h / 2 + Math.sin(angle) * (offset + len);
+
+    ctx.globalAlpha = Math.max(0, 1 - offset / (startR + len));
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawGauge(ctx: CanvasRenderingContext2D, w: number, h: number, speed: number): void {
+  const speedKmh = Math.floor(speed * 120);
+  const speedFrac = Math.min(1, speed / 3);
+  const cx = w / 2;
+  const cy = h - 28;
+  const r = Math.min(w, h) * 0.16;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI * 1.1, Math.PI * 1.9);
+  ctx.stroke();
+
+  const green = Math.floor(255 * (1 - speedFrac * 0.5));
+  const blue = Math.floor(65 + speedFrac * 50);
+  ctx.strokeStyle = `rgba(0, ${green}, ${blue}, 0.5)`;
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI * 1.1, Math.PI * 1.1 + Math.PI * 0.8 * speedFrac);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = 'bold 24px Consolas, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${speedKmh}`, cx, cy);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.font = '9px system-ui, sans-serif';
+  ctx.fillText('KM/H', cx, cy + 18);
+
+  const gear = speed < 0.5 ? 'N' : speed < 0.8 ? '1' : speed < 1.2 ? '2' : speed < 1.8 ? '3' : speed < 2.4 ? '4' : '5';
+  ctx.fillStyle = 'rgba(0, 255, 65, 0.6)';
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  ctx.fillText(`Gear ${gear}`, cx, cy - r - 12);
+}
+
 // ─── Init ──────────────────────────────────────────────────────────
 async function init(): Promise<void> {
   game = new Game(gameCanvas);
@@ -570,10 +676,20 @@ async function init(): Promise<void> {
   setupTouchControls();
   deviceOrientationInit();
 
+  // Init audio on first interaction (browser policy)
+  const initAudioOnce = () => { initAudio(); window.removeEventListener('click', initAudioOnce); window.removeEventListener('keydown', initAudioOnce); window.removeEventListener('touchstart', initAudioOnce); };
+  window.addEventListener('click', initAudioOnce, { once: true });
+  window.addEventListener('keydown', initAudioOnce, { once: true });
+  window.addEventListener('touchstart', initAudioOnce, { once: true });
+
   window.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'u') {
       e.preventDefault();
       autoAccelerate = !autoAccelerate;
+      const touchAuto = document.getElementById('touch-auto');
+      if (touchAuto) touchAuto.classList.toggle('active', autoAccelerate);
+      const uBox = document.querySelector('.key-box[data-key="u"]');
+      if (uBox) uBox.classList.toggle('active', autoAccelerate);
       updateStatus();
     }
   });

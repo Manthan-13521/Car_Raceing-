@@ -24,6 +24,8 @@ export interface GameState {
   started: boolean;
   gameOver: boolean;
   raceDuration: number;
+  shakeIntensity: number;
+  justCollided: boolean;
 }
 
 export class Game {
@@ -57,6 +59,9 @@ export class Game {
   private spawnInterval = 100;
   private lastFrameTime = 0;
 
+  private shakeIntensity = 0;
+  private _justCollided = false;
+
   private headlight1!: THREE.PointLight;
   private headlight2!: THREE.PointLight;
 
@@ -89,6 +94,7 @@ export class Game {
   get started(): boolean { return this._started; }
   get handsDetected(): number { return this._handsDetected; }
   get steerCenterX(): number { return this.centerX; }
+  get justCollided(): boolean { return this._justCollided; }
 
   getState(): GameState {
     return {
@@ -103,6 +109,8 @@ export class Game {
       started: this._started,
       gameOver: this._gameOver,
       raceDuration: RACE_DURATION,
+      shakeIntensity: this.shakeIntensity,
+      justCollided: this._justCollided,
     };
   }
 
@@ -134,6 +142,8 @@ export class Game {
     this.spawnTimer = 0;
     this.cameraX = 0;
     this.smoothSteer.reset(0);
+    this.shakeIntensity = 0;
+    this._justCollided = false;
     for (const c of this.obstacles) this.scene.remove(c);
     this.obstacles = [];
     this.spawnCar();
@@ -487,8 +497,22 @@ export class Game {
     const targetX = steerInput * 5;
     this.cameraX = this.smoothSteer.update(targetX);
     this.cameraX = Math.max(-4, Math.min(4, this.cameraX));
-    this.camera.position.x = this.cameraX;
-    this.camera.rotation.z = this.cameraX * -0.025;
+
+    // Camera shake decay
+    this._justCollided = false;
+    if (this.shakeIntensity > 0.01) {
+      this.shakeIntensity *= 0.9;
+    } else {
+      this.shakeIntensity = 0;
+    }
+
+    const shakeX = (Math.random() - 0.5) * this.shakeIntensity * 0.8;
+    const shakeY = (Math.random() - 0.5) * this.shakeIntensity * 0.5;
+    const rollExtra = (Math.random() - 0.5) * this.shakeIntensity * 0.04;
+
+    this.camera.position.x = this.cameraX + shakeX;
+    this.camera.position.y = CAM_Y + shakeY;
+    this.camera.rotation.z = this.cameraX * -0.025 + rollExtra;
 
     // Headlights follow
     this.headlight1.position.x = this.cameraX - 2.5;
@@ -526,6 +550,8 @@ export class Game {
       const dz = Math.abs(car.position.z);
       if (dx < 1.5 && dz < 2.5) {
         this._gameOver = true;
+        this._justCollided = true;
+        this.shakeIntensity = 2.0;
       }
     }
   }
