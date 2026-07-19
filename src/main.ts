@@ -298,17 +298,15 @@ function onKeys(newKeys: GameKeys): void {
 
   if (game) {
     if (keys.up) {
-      let steerX = 0.5;
-      if (keys.left) steerX = 0;
-      else if (keys.right) steerX = 1;
-      game.setHandData(steerX, 2);
+      game.setHandData(game.steerCenterX, 2);
       if (!game.started || game.gameOver) {
         game.start();
         document.getElementById('game-overlay')!.classList.remove('visible');
         document.getElementById('game-over-overlay')!.classList.remove('visible');
       }
     } else if (keys.left || keys.right) {
-      game.setHandData(keys.left ? 0 : 1, autoAccelerate ? 2 : 1);
+      const steerX = keys.left ? 0 : 1;
+      game.setHandData(steerX, autoAccelerate ? 2 : 1);
     }
   }
 }
@@ -320,9 +318,9 @@ function onHandData(data: HandData): void {
 
   if (!game) return;
 
-  if (!keys.up && !keys.left && !keys.right) {
-    game.setHandData(data.centerX, autoAccelerate ? 2 : data.handsDetected);
-  }
+  // Hand tracking always provides steering (centerX) for the game.
+  // The game loop applies keyboard/touch overrides on top when active.
+  game.setHandData(data.centerX, autoAccelerate ? 2 : data.handsDetected);
 
   if (data.landmarks.length > 0) {
     game.setHandSkeleton(data.landmarks[0]);
@@ -355,20 +353,28 @@ function gameLoop(): void {
   }
 
   if (game) {
-    // Gyroscope + auto-accelerate combined block
-    if (gyroscopeMode && !touchActive && !keys.left && !keys.right) {
-      const gyroCenterX = 0.5 + gyroTilt * 0.4;
-      const gyroHands = (autoAccelerate || keys.up) ? 2 : 0;
-      game.setHandData(gyroCenterX, gyroHands);
-    } else
-    // Auto-accelerate (only when no manual input is active)
-    if (autoAccelerate && !touchActive && !keys.up && !keys.left && !keys.right) {
-      game.setHandData(gyroscopeMode ? 0.5 + gyroTilt * 0.4 : game.steerCenterX, 2);
+    // ── Auto-accelerate layer: runs alongside other inputs ──
+    if (autoAccelerate && !keys.up) {
+      let steerX = game.steerCenterX;
+      if (touchActive) {
+        // touch steering already set by applyTouchState, keep it
+      } else if (gyroscopeMode) {
+        steerX = 0.5 + gyroTilt * 0.4;
+      } else if (keys.left || keys.right) {
+        steerX = keys.left ? 0 : 1;
+      }
+      game.setHandData(steerX, 2);
       if (!game.started) {
         game.start();
         document.getElementById('game-overlay')!.classList.remove('visible');
         document.getElementById('game-over-overlay')!.classList.remove('visible');
       }
+    }
+    // ── Gyroscope layer: only when gyro on, no keyboard/touch overrides ──
+    else if (gyroscopeMode && !touchActive && !keys.left && !keys.right) {
+      const gyroCenterX = 0.5 + gyroTilt * 0.4;
+      const gyroHands = keys.up ? 2 : 0;
+      game.setHandData(gyroCenterX, gyroHands);
     }
 
     game.update();
