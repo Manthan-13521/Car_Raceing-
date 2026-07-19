@@ -1,0 +1,579 @@
+/* ================================================================
+   VIRTUAL STEERING — Racing Game Design System
+   Fonts: Orbitron (data/headers), Rajdhani (body/labels)
+   Colors: #0a0a0f bg, #e10600 red, #ffd700 gold, #00d4ff blue, #00ff41 green
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a25;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-bright: rgba(255, 255, 255, 0.12);
+  --red: #e10600;
+  --gold: #ffd700;
+  --blue: #00d4ff;
+  --green: #00ff41;
+  --text: #ffffff;
+  --text2: #a0a0b0;
+  --text3: #606070;
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --font-data: 'Orbitron', monospace, sans-serif;
+  --font-body: 'Rajdhani', system-ui, sans-serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --nav-h: 52px;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 500;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hidden { display: none !important; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+/* ── Nav Bar ── */
+.nav {
+  height: var(--nav-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  user-select: none;
+  position: relative;
+  z-index: 100;
+}
+.nav-left { display: flex; align-items: center; gap: 12px; }
+.nav-logo {
+  width: 30px; height: 30px;
+  background: var(--red);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: #fff;
+  box-shadow: 0 0 12px rgba(225, 6, 0, 0.4);
+}
+.nav-title {
+  font-family: var(--font-data);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, #fff 40%, var(--red));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.nav-right { display: flex; align-items: center; gap: 10px; }
+.nav-cam-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text2);
+  background: rgba(255,255,255,0.04);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+.cam-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #f44;
+  box-shadow: 0 0 6px #f44;
+  transition: all 0.3s;
+}
+.cam-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.nav-btn {
+  width: 32px; height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text2);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.06); color: #fff; border-color: var(--border-bright); }
+
+/* ── Main Layout ── */
+.app {
+  display: flex;
+  height: calc(100vh - var(--nav-h));
+  gap: 0;
+}
+
+/* ── Left Panel ── */
+.panel-left {
+  width: 39%;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+/* ── Right Panel ── */
+.panel-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  min-width: 0;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.card-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+}
+.dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.card-label {
+  font-family: var(--font-data);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text2);
+}
+.card-fps {
+  margin-left: auto;
+  font-family: var(--font-data);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 1px;
+}
+
+/* ── Camera Card ── */
+.card-cam { flex-shrink: 0; }
+.cam-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #000;
+  overflow: hidden;
+}
+.cam-wrap video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+.cam-wrap canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.cam-labels {
+  position: absolute;
+  top: 8px; left: 8px;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 2;
+}
+.cam-face, .cam-hand {
+  font-family: var(--font-data);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: none;
+}
+.cam-face { background: rgba(0, 212, 255, 0.2); color: var(--blue); border: 1px solid rgba(0, 212, 255, 0.3); }
+.cam-hand-left { background: rgba(0, 255, 65, 0.15); color: var(--green); border: 1px solid rgba(0, 255, 65, 0.25); }
+.cam-hand-right { background: rgba(255, 215, 0, 0.15); color: var(--gold); border: 1px solid rgba(255, 215, 0, 0.25); }
+.cam-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(10, 10, 15, 0.9);
+  color: var(--text2);
+  font-size: 13px;
+  z-index: 3;
+}
+.cam-error-icon { font-size: 28px; color: var(--red); }
+
+/* ── Steering Card ── */
+.card-steer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+.steer-visual { flex-shrink: 0; }
+.steer-wheel-svg { width: 64px; height: 64px; }
+.steer-info { flex: 1; min-width: 0; }
+.steer-dir {
+  font-family: var(--font-data);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--green);
+  transition: color 0.2s;
+}
+.steer-dir.active-left { color: var(--blue); }
+.steer-dir.active-right { color: var(--gold); }
+.steer-sub {
+  font-size: 13px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+/* ── Telemetry Grid ── */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  flex-shrink: 0;
+}
+.telem-item {
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 8px;
+  text-align: center;
+}
+.telem-label {
+  display: block;
+  font-family: var(--font-data);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+.telem-val {
+  display: block;
+  font-family: var(--font-data);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Keyboard Keys ── */
+.card-keys { flex-shrink: 0; padding: 10px 14px; }
+.keys-row { display: flex; gap: 6px; }
+.key-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--glass);
+  transition: all 0.15s;
+}
+.key-box.active {
+  background: rgba(0, 255, 65, 0.1);
+  border-color: var(--green);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.15);
+}
+.key-label {
+  font-family: var(--font-data);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.key-desc {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text3);
+}
+
+/* ── Game Card ── */
+.card-game {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.game-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  min-height: 0;
+}
+.game-viewport canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
+
+/* ── HUD Overlay ── */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  padding: 16px 20px;
+}
+.hud-top-left {
+  position: absolute;
+  top: 16px; left: 20px;
+}
+.hud-top-right {
+  position: absolute;
+  top: 16px; right: 20px;
+  text-align: right;
+}
+.hud-bottom-center {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.hud-label {
+  font-family: var(--font-data);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: var(--text3);
+  margin-bottom: 2px;
+}
+.hud-val {
+  font-family: var(--font-data);
+  font-weight: 700;
+  color: var(--text);
+}
+.hud-pos { font-size: 28px; }
+.hud-lap { font-size: 22px; margin-bottom: 8px; }
+.hud-time {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.hud-best {
+  font-size: 16px;
+  color: var(--text2);
+  font-variant-numeric: tabular-nums;
+}
+.hud-speed-val {
+  font-family: var(--font-data);
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--blue);
+  text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+  line-height: 1;
+  margin-top: 8px;
+}
+.hud-speed-unit {
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  color: var(--text3);
+}
+.hud-track-name {
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--text3);
+}
+.hud-track-title {
+  font-family: var(--font-data);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--text2);
+}
+.hud-lap-info {
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin-top: 4px;
+}
+
+/* ── Game Overlays ── */
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(6px);
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.game-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.overlay-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.overlay-icon {
+  font-size: 52px;
+  filter: drop-shadow(0 0 20px rgba(225, 6, 0, 0.3));
+}
+.overlay-title {
+  font-family: var(--font-data);
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  background: linear-gradient(135deg, #fff 0%, var(--red) 50%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.overlay-sub {
+  font-size: 18px;
+  color: var(--text2);
+  font-weight: 500;
+}
+.overlay-hint {
+  font-size: 13px;
+  color: var(--text3);
+  letter-spacing: 1px;
+}
+
+/* ── Bottom Panels ── */
+.bottom-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.bottom-panels .card { padding: 12px 14px; }
+.panel-title {
+  font-family: var(--font-data);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+
+/* Calibration */
+.calibrate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.calibrate-label {
+  font-family: var(--font-data);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: var(--text3);
+  white-space: nowrap;
+}
+.calibrate-val {
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--blue);
+  min-width: 36px;
+  text-align: right;
+}
+.slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.08);
+  outline: none;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+  border: 2px solid rgba(0, 212, 255, 0.6);
+}
+
+/* Status */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text3);
+  flex-shrink: 0;
+}
+.status-label {
+  font-size: 12px;
+  color: var(--text3);
+  flex: 1;
+}
+.status-val {
+  font-family: var(--font-data);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--green);
+}
+.status-val.inactive { color: var(--text3); }
+
+/* Tips */
+.tip-row {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tip-icon {
+  color: var(--green);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Animations ── */
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 6px var(--green); } 50% { box-shadow: 0 0 14px var(--green); } }
+.dot-green { animation: glow 2s ease-in-out infinite; }

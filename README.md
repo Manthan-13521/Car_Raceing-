@@ -1,87 +1,121 @@
-# Virtual Steering Control with Hand Tracking 👐 🚘 👐
+# Virtual Steering
 
-This project leverages advanced hand tracking techniques to control virtual steering in racing games. Utilizing the power of OpenCV and the HandTrackingModule from cvzone, this Python script interprets hand gestures as steering commands, enabling an immersive gaming experience without the need for physical controllers.
+A real-time hand-gesture-based virtual steering wheel that uses a webcam to detect hand positions and translates them into driving controls (accelerate, steer left/right).
 
-## Introduction
+## How the Original Python Project Works
 
-The core idea of this project is to use real-time hand gesture recognition to simulate steering actions in racing games. By tracking the position and movement of the hands, the script translates these gestures into keyboard commands that control the in-game vehicle.
+### Core Concept
 
-## Demo
+The original `Steering.py` uses **MediaPipe** (via the `cvzone` wrapper) to track both hands through a webcam feed. The center point between the two index-finger tips determines the steering direction, and the system automatically accelerates when both hands are visible.
 
-Check out the demonstration of the project on YouTube to see how it works in action:          [Output Video](https://www.youtube.com/watch?v=is8RJPkHHAE).
+### Control Logic
 
-## Getting Started
+| Condition | Action |
+|-----------|--------|
+| Both hands detected | Press **W** (accelerate) |
+| Center of index fingers < 40% of frame width | Press **A** (steer left) |
+| Center of index fingers > 60% of frame width | Press **D** (steer right) |
+| Center between 40%-60% | Release A/D (go straight) |
+| 0 or 1 hand detected | Release all keys (stop) |
 
-### Prerequisites
+### Key Parameters
 
-To run this project, you'll need the following installed on your system:
+- `LEFT_THRESHOLD = 0.40` — Normalized X position below which steering turns left
+- `RIGHT_THRESHOLD = 0.60` — Normalized X position above which steering turns right
+- `SMOOTHING_ALPHA = 0.15` — Exponential Moving Average smoothing factor to reduce jitter
+- `DETECTION_CONFIDENCE = 0.8` — MediaPipe detection confidence threshold
 
-- Python 3.x
-- OpenCV (`cv2`)
-- PyAutoGUI
-- PyDirectInput
-- cvzone
-- pynput
-- keyboard
+### Technical Stack (Original)
 
-### Installation
+- **Python 3.12** with OpenCV for video capture
+- **MediaPipe** / **cvzone** for hand landmark detection
+- **pynput** for macOS keyboard simulation
+- Webcam feed displayed with OpenCV GUI overlay showing FPS, direction, and acceleration status
 
-1. Clone this repository to your local machine:
-    ```bash
-    git clone https://github.com/zamalali/Virtual-Steering.git
-    ```
-2. Navigate to the project directory:
-    ```bash
-    cd Virtual-Steering
-    ```
-3. Install the required Python packages. It's recommended to use a virtual environment:
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    pip install -r requirements.txt
-    ```
+### Limitations of the Original
 
-### Running the Script
+1. **No visual game** — It only simulates key presses (W, A, D). You need a separate game running.
+2. **macOS-only** — Keyboard simulation via `pynput` is platform-specific.
+3. **No feedback** — No visual representation of the "car" or steering wheel.
 
-1. Ensure your webcam is connected and properly configured.
-2. Run the script:
-    ```bash
-    python Steering.py
-    ```
+---
 
+## Web Game Specification (This Project)
 
-## How It Works
+### Overview
 
-- The script initializes the webcam and uses the `HandDetector` module from cvzone to detect and track the hands in real-time.
-- Hand movements and gestures are interpreted as steering commands:
-    - Bringing hands closer or further apart simulates steering left or right.
-    - Specific gestures could be programmed to simulate acceleration or braking.
-- The `pydirectinput` library is used to send keyboard commands to the racing game, based on the interpreted hand gestures.
+A browser-based driving game controlled entirely by hand gestures via the webcam. The game renders a car on a procedurally generated road, and the player steers by moving both hands left/right in front of the camera.
 
-## Customization
+### Tech Stack
 
-You can customize the sensitivity of the steering control, the specific gestures used, and the corresponding keyboard commands by modifying the script parameters.
+- **Vite** — Fast dev server with HMR (`npm run dev`)
+- **TypeScript** — Type-safe development
+- **MediaPipe Hands** (`@mediapipe/hands` + `@mediapipe/camera_utils`) — Hand landmark detection in the browser
+- **HTML5 Canvas** — Game rendering (no external game engine needed)
 
-## Safety and Precautions
+### Game Mechanics
 
-- Ensure sufficient lighting for accurate hand tracking.
-- Familiarize yourself with the game controls and ensure the virtual environment is safe for navigation using hand gestures.
+1. **Acceleration**: Automatic when both hands are detected (like the original pressing W)
+2. **Steering**: Center point between both index-finger tips maps to:
+   - **Left** (center < 40% of frame) → car steers left
+   - **Straight** (40%–60%) → car goes straight
+   - **Right** (center > 60%) → car steers right
+3. **Braking**: When hands are lost (0 or 1 hand), the car slows down
+4. **Road**: Procedurally generated endless road with lanes and curves
 
-## Contributions
+### Project Structure
 
-Feel free to fork this repository and contribute by submitting a pull request. Whether it's adding new features, improving the hand tracking accuracy, or enhancing the documentation, all contributions are welcome!
+```
+virtual-steering-web/
+├── index.html
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── src/
+│   ├── main.ts          — Entry point, sets up canvas and starts the loop
+│   ├── game/
+│   │   ├── Game.ts      — Main game loop, state management
+│   │   ├── Car.ts       — Car entity (position, speed, rendering)
+│   │   └── Road.ts      — Road generation and rendering
+│   ├── input/
+│   │   └── HandTracker.ts  — MediaPipe hand tracking wrapper
+│   └── utils/
+│       └── smoothing.ts — EMA filter for gesture data
+└── public/
+    └── (static assets if any)
+```
 
-## License
+### Data Flow
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```
+Webcam → MediaPipe Hands → Landmark positions
+                              ↓
+                        Compute center of index fingertips
+                              ↓
+                        EMA Smoothing
+                              ↓
+                        Map to steering direction (A/D)
+                              ↓
+                        Update car position
+                              ↓
+                        Render frame (road + car + overlay)
+```
 
-## Acknowledgments
+### How to Run
 
-- The developers of OpenCV and cvzone for providing powerful tools for computer vision applications.
-- The creators of PyAutoGUI and PyDirectInput for facilitating keyboard automation.
-- The online community for their invaluable resources and support.
+```bash
+npm install
+npm run dev
+```
 
-## Stay Connected
+### Permissions
 
-For more projects and updates, follow me on [GitHub](https://github.com/zamalali) and subscribe to my [YouTube Channel](https://www.youtube.com/@autopy9866).
+The browser will request camera access. The app works on any OS with a browser that supports WebRTC (Chrome, Edge, Firefox, Safari).
 
+### Future Enhancements (Ideas)
+
+- Speed control (bring hands closer/farther to accelerate/brake)
+- Obstacles / other cars
+- Score / distance tracking
+- Mobile support with touch fallback
+- Steering wheel visual overlay in the camera feed
