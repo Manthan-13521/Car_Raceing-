@@ -577,3 +577,104 @@ html, body {
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes glow { 0%, 100% { box-shadow: 0 0 6px var(--green); } 50% { box-shadow: 0 0 14px var(--green); } }
 .dot-green { animation: glow 2s ease-in-out infinite; }
+
+/* ── Touch Controls (mobile) ── */
+.touch-controls {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+.touch-btn {
+  pointer-events: auto;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+}
+.touch-btn:active, .touch-btn.pressed {
+  background: rgba(0, 255, 65, 0.25);
+  border-color: var(--green);
+  transform: scale(0.92);
+}
+.touch-btn svg { width: 28px; height: 28px; color: #fff; }
+.touch-left { position: absolute; left: 16px; bottom: 80px; }
+.touch-right { position: absolute; right: 16px; bottom: 80px; }
+.touch-bottom { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; }
+.touch-auto-btn { width: 50px; height: 50px; font-family: var(--font-data); font-size: 14px; letter-spacing: 1px; }
+.touch-auto-btn.active { background: rgba(255, 215, 0, 0.25); border-color: var(--gold); }
+.touch-mode {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: rgba(255,255,255,0.12);
+  pointer-events: none;
+}
+
+/* ── Mobile / Tablet Responsive ── */
+@media (max-width: 900px) {
+  .app { flex-direction: column; height: auto; min-height: calc(100vh - var(--nav-h)); }
+  .panel-left { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); flex-shrink: 0; max-height: 50vh; overflow-y: auto; }
+  .panel-right { width: 100%; min-height: 50vh; }
+  .bottom-panels { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .panel-left .card-cam { display: none; }
+  .panel-left { max-height: 30vh; }
+  .panel-right { min-height: 70vh; }
+  .touch-controls { display: block; }
+  .nav-title { font-size: 11px; letter-spacing: 1px; }
+  .nav-cam-status { font-size: 10px; padding: 2px 8px; }
+  .container { border-radius: 0; }
+  .telemetry-grid { grid-template-columns: repeat(2, 1fr); }
+  .hud-top-left { top: 8px; left: 10px; }
+  .hud-top-right { top: 8px; right: 10px; }
+  .hud-pos { font-size: 20px; }
+  .hud-lap { font-size: 16px; }
+  .hud-time { font-size: 16px; }
+  .hud-speed-val { font-size: 32px; }
+  .game-overlay .overlay-title { font-size: 24px; }
+  .game-overlay .overlay-icon { font-size: 38px; }
+  .card-steer { padding: 8px 12px; }
+  .steer-wheel-svg { width: 48px; height: 48px; }
+  .steer-dir { font-size: 13px; }
+  .bottom-panels .card { padding: 8px 10px; }
+  .key-box { padding: 4px 2px; }
+  .key-label { font-size: 14px; }
+  .key-desc { font-size: 7px; }
+}
+
+@media (pointer: coarse) {
+  .touch-controls { display: block; }
+  .card-cam { display: none; }
+}
+
+@media (max-width: 400px) {
+  .hud-speed-val { font-size: 24px; }
+  .hud-pos { font-size: 16px; }
+  .hud-time { font-size: 13px; }
+  .hud-best { font-size: 12px; }
+  .touch-btn { width: 50px; height: 50px; }
+  .touch-btn svg { width: 22px; height: 22px; }
+  .touch-left { left: 10px; bottom: 70px; }
+  .touch-right { right: 10px; bottom: 70px; }
+}

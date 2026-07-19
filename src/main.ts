@@ -50,6 +50,8 @@ let keys: GameKeys = { up: false, down: false, left: false, right: false };
 let cameraActive = false;
 let handTrackingActive = false;
 let autoAccelerate = false;
+let gyroscopeMode = false;
+let gyroTilt = 0;
 
 const statusAuto = document.getElementById('status-auto')!;
 const statusAutoDot = document.getElementById('status-auto-dot')!;
@@ -398,9 +400,15 @@ function gameLoop(): void {
   }
 
   if (game) {
-    // Auto-accelerate: keep accelerating without holding W
-    if (autoAccelerate && !keys.up && !keys.left && !keys.right) {
-      game.setHandData(game.steerCenterX, 2);
+    // Gyroscope steering (only when touch and keyboard are idle)
+    if (gyroscopeMode && !touchActive && !keys.left && !keys.right) {
+      const gyroCenterX = 0.5 + gyroTilt * 0.4;
+      game.setHandData(gyroCenterX, autoAccelerate || keys.up ? 2 : 0);
+    }
+
+    // Auto-accelerate (only when no manual input is active)
+    if (autoAccelerate && !touchActive && !keys.up && !keys.left && !keys.right) {
+      game.setHandData(gyroscopeMode ? 0.5 + gyroTilt * 0.4 : game.steerCenterX, 2);
       if (!game.started) {
         game.start();
         document.getElementById('game-overlay')!.classList.remove('visible');
@@ -452,6 +460,105 @@ function handleResize(): void {
   game.resize(viewport.clientWidth, viewport.clientHeight);
 }
 
+// ─── Touch Controls ────────────────────────────────────────────────
+let touchActive = false;
+let touchLeftHeld = false;
+let touchRightHeld = false;
+let touchUpHeld = false;
+
+function setupTouchControls(): void {
+  const touchLeft = document.getElementById('touch-left')!;
+  const touchRight = document.getElementById('touch-right')!;
+  const touchAccel = document.getElementById('touch-accel')!;
+  const touchAuto = document.getElementById('touch-auto')!;
+  const modeLabel = document.getElementById('touch-mode-label')!;
+
+  function applyTouchState(): void {
+    if (!game) return;
+    touchActive = touchLeftHeld || touchRightHeld || touchUpHeld;
+    if (touchUpHeld) {
+      let steerX = 0.5;
+      if (touchLeftHeld) steerX = 0;
+      else if (touchRightHeld) steerX = 1;
+      game.setHandData(steerX, 2);
+      if (!game.started || game.gameOver) {
+        game.start();
+        document.getElementById('game-overlay')!.classList.remove('visible');
+        document.getElementById('game-over-overlay')!.classList.remove('visible');
+      }
+    } else if (touchLeftHeld) {
+      game.setHandData(0, autoAccelerate ? 2 : 1);
+    } else if (touchRightHeld) {
+      game.setHandData(1, autoAccelerate ? 2 : 1);
+    }
+  }
+
+  function bindTouch(el: HTMLElement, key: 'left' | 'right' | 'up'): void {
+    const setHeld = (held: boolean) => {
+      if (key === 'left') touchLeftHeld = held;
+      else if (key === 'right') touchRightHeld = held;
+      else touchUpHeld = held;
+      el.classList.toggle('pressed', held);
+      applyTouchState();
+    };
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); setHeld(true); }, { passive: false });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); setHeld(false); }, { passive: false });
+    el.addEventListener('touchcancel', () => setHeld(false));
+    el.addEventListener('mousedown', () => setHeld(true));
+    el.addEventListener('mouseup', () => setHeld(false));
+    el.addEventListener('mouseleave', () => setHeld(false));
+  }
+
+  bindTouch(touchLeft, 'left');
+  bindTouch(touchRight, 'right');
+  bindTouch(touchAccel, 'up');
+
+  touchAuto.addEventListener('click', () => {
+    autoAccelerate = !autoAccelerate;
+    touchAuto.classList.toggle('active', autoAccelerate);
+    updateStatus();
+    if (touchActive) applyTouchState();
+  });
+
+  // Toggle gyroscope mode on double-tap of mode label
+  let lastTap = 0;
+  modeLabel.addEventListener('click', () => {
+    const now = Date.now();
+    if (now - lastTap < 400) {
+      gyroscopeMode = !gyroscopeMode;
+      modeLabel.textContent = gyroscopeMode ? 'GYRO' : 'TOUCH';
+      deviceOrientationInit();
+      updateStatus();
+    }
+    lastTap = now;
+  });
+}
+
+// ─── Gyroscope ─────────────────────────────────────────────────────
+let orientationListener: ((e: DeviceOrientationEvent) => void) | null = null;
+
+function deviceOrientationInit(): void {
+  if (orientationListener) {
+    window.removeEventListener('deviceorientation', orientationListener);
+    orientationListener = null;
+  }
+  if (!gyroscopeMode) return;
+
+  orientationListener = (e: DeviceOrientationEvent) => {
+    if (e.gamma == null) return;
+    // gamma: -90 (tilt left) to 90 (tilt right)
+    gyroTilt = Math.max(-1, Math.min(1, e.gamma / 45));
+  };
+
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+    (DeviceOrientationEvent as any).requestPermission().then((state: string) => {
+      if (state === 'granted') window.addEventListener('deviceorientation', orientationListener!);
+    });
+  } else {
+    window.addEventListener('deviceorientation', orientationListener);
+  }
+}
+
 // ─── Init ──────────────────────────────────────────────────────────
 async function init(): Promise<void> {
   game = new Game(gameCanvas);
@@ -460,6 +567,8 @@ async function init(): Promise<void> {
 
   new KeyboardHandler(onKeys);
   setupSensitivity();
+  setupTouchControls();
+  deviceOrientationInit();
 
   window.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'u') {
