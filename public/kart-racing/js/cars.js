@@ -353,6 +353,8 @@ function nextCar() { selectedCarIndex = (selectedCarIndex + 1) % ALL_CARS.length
 function updateCarPreview() {
   const car = getSelectedCar();
   document.getElementById('car-name').textContent = car.name;
+  document.getElementById('car-desc').textContent = car.desc;
+  document.getElementById('car-counter').textContent = `${selectedCarIndex + 1} / ${ALL_CARS.length}`;
 
   const statNames = ['speed', 'accel', 'handling', 'boost'];
   const statBars = document.getElementById('car-stats');

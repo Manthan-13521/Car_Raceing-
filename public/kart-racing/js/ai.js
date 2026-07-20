@@ -18,10 +18,10 @@ function createAICar(carIndex, carData) {
     y: pts[startOffset % pts.length].y + baseY,
     angle: 0,
     speed: 0,
-    maxSpeed: (1.5 + (s.speed / 100) * 3.5) * (0.85 + Math.random() * 0.15),
-    accel: (0.008 + (s.accel / 100) * 0.032) * (0.85 + Math.random() * 0.15),
-    handling: (1.0 + (s.handling / 100) * 4.0) * (0.85 + Math.random() * 0.15),
-    boostPower: 1.0 + (s.boost / 100) * 0.5,
+    maxSpeed: (1.2 + (s.speed / 100) * 2.5) * (0.8 + Math.random() * 0.15),
+    accel: (0.006 + (s.accel / 100) * 0.02) * (0.8 + Math.random() * 0.15),
+    handling: (1.0 + (s.handling / 100) * 3.0) * (0.8 + Math.random() * 0.15),
+    boostPower: 1.0 + (s.boost / 100) * 0.4,
     progress: startOffset,
     lap: 0,
     finished: false,
@@ -31,7 +31,7 @@ function createAICar(carIndex, carData) {
     lapStartTime: 0,
     totalRaceTime: 0,
     personality: {
-      aggression: Math.random(),
+      aggression: Math.random() * 0.6,
       consistency: 0.5 + Math.random() * 0.5,
       braking: 0.3 + Math.random() * 0.4,
     }
@@ -52,12 +52,10 @@ function updateAI(ai, dt, raceTime, playerProgress, playerLap, allCars, trackPts
   const progressDiff = playerProgress - ai.progress + (playerLap - ai.lap) * trackPts.length;
 
   let speedMod = 1.0;
-  if (progressDiff > 50) {
-    // AI is far behind — speed up
-    speedMod = 1.0 + Math.min(0.5, (progressDiff - 50) / 200);
-  } else if (progressDiff < -50) {
-    // AI is far ahead — slow down
-    speedMod = 1.0 - Math.min(0.4, Math.abs(progressDiff + 50) / 200);
+  if (progressDiff > 80) {
+    speedMod = 1.0 + Math.min(0.3, (progressDiff - 80) / 300);
+  } else if (progressDiff < -80) {
+    speedMod = 1.0 - Math.min(0.25, Math.abs(progressDiff + 80) / 300);
   }
 
   // Apply personality consistency (random variation)

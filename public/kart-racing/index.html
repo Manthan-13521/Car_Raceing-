@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Kart Racing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,13 +15,76 @@
     <div class="menu-bg"></div>
     <div class="menu-content">
       <div class="menu-logo">
-        <span class="menu-logo-icon">&#9917;</span>
+        <div class="menu-logo-rings">
+          <div class="ring ring-1"></div>
+          <div class="ring ring-2"></div>
+          <div class="ring ring-3"></div>
+        </div>
+        <span class="menu-logo-icon">&#127939;</span>
         <h1 class="menu-title">KART<br/>RACING</h1>
         <p class="menu-sub">GRAND PRIX</p>
       </div>
       <div class="menu-actions">
-        <button class="menu-btn menu-btn-primary" onclick="showScreen('car-select')">START RACE</button>
-        <button class="menu-btn menu-btn-secondary">CONTROLS</button>
+        <button class="menu-btn menu-btn-primary" onclick="showScreen('car-select')">
+          <span class="btn-icon">&#9654;</span> START RACE
+        </button>
+        <button class="menu-btn menu-btn-secondary" onclick="showControls()">
+          <span class="btn-icon">&#9881;</span> CONTROLS
+        </button>
+      </div>
+      <div class="menu-footer-text">Arrow Keys or WASD to drive</div>
+    </div>
+  </div>
+
+  <!-- ─── Controls Overlay ─── -->
+  <div id="controls-overlay" class="overlay">
+    <div class="overlay-card">
+      <div class="overlay-header">
+        <h2>CONTROLS</h2>
+        <button class="overlay-close" onclick="hideControls()">&times;</button>
+      </div>
+      <div class="controls-grid">
+        <div class="control-item">
+          <div class="key-group">
+            <span class="key">&#9650;</span>
+            <span class="key-label">or</span>
+            <span class="key">W</span>
+          </div>
+          <span class="control-action">Accelerate</span>
+        </div>
+        <div class="control-item">
+          <div class="key-group">
+            <span class="key">&#9660;</span>
+            <span class="key-label">or</span>
+            <span class="key">S</span>
+          </div>
+          <span class="control-action">Brake</span>
+        </div>
+        <div class="control-item">
+          <div class="key-group">
+            <span class="key">&#9664;</span>
+            <span class="key-label">or</span>
+            <span class="key">A</span>
+          </div>
+          <span class="control-action">Steer Left</span>
+        </div>
+        <div class="control-item">
+          <div class="key-group">
+            <span class="key">&#9654;</span>
+            <span class="key-label">or</span>
+            <span class="key">D</span>
+          </div>
+          <span class="control-action">Steer Right</span>
+        </div>
+      </div>
+      <div class="controls-tips">
+        <h3>TIPS</h3>
+        <ul>
+          <li>Stay on the road for maximum speed</li>
+          <li>Blue pads give you a speed boost</li>
+          <li>Avoid yellow hazard zones and red spin pads</li>
+          <li>Camo Tank car resists hazards better</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -38,17 +101,19 @@
       <div class="car-display">
         <canvas id="car-preview" width="400" height="300"></canvas>
         <div class="car-name" id="car-name">Shark Racer</div>
+        <div class="car-desc" id="car-desc">High speed, low handling</div>
         <div class="car-stats" id="car-stats">
           <div class="stat-row"><span>SPEED</span><div class="stat-bar"><div class="stat-fill" style="width:80%"></div></div></div>
           <div class="stat-row"><span>ACCEL</span><div class="stat-bar"><div class="stat-fill" style="width:60%"></div></div></div>
           <div class="stat-row"><span>HANDLING</span><div class="stat-bar"><div class="stat-fill" style="width:40%"></div></div></div>
           <div class="stat-row"><span>BOOST</span><div class="stat-bar"><div class="stat-fill" style="width:70%"></div></div></div>
         </div>
+        <div class="car-counter" id="car-counter">1 / 5</div>
       </div>
       <button class="car-arrow car-arrow-right" onclick="nextCar()">&#8594;</button>
     </div>
     <div class="screen-footer">
-      <button class="menu-btn menu-btn-primary" onclick="showScreen('track-select')">NEXT: TRACK</button>
+      <button class="menu-btn menu-btn-primary" onclick="showScreen('track-select')">NEXT: TRACK &#8594;</button>
     </div>
   </div>
 
@@ -61,7 +126,7 @@
     </div>
     <div class="track-grid" id="track-grid"></div>
     <div class="screen-footer">
-      <button class="menu-btn menu-btn-primary" onclick="startRace()">RACE!</button>
+      <button class="menu-btn menu-btn-primary" onclick="startRace()">&#127937; RACE!</button>
     </div>
   </div>
 
@@ -71,21 +136,28 @@
 
     <!-- HUD -->
     <div class="race-hud" id="race-hud">
-      <div class="hud-left">
-        <div class="hud-position" id="hud-pos">1st</div>
-        <div class="hud-lap" id="hud-lap">LAP 1/3</div>
+      <div class="hud-top">
+        <div class="hud-left">
+          <div class="hud-position" id="hud-pos">1st</div>
+          <div class="hud-lap" id="hud-lap">LAP 1/3</div>
+        </div>
+        <div class="hud-center-top">
+          <div class="hud-time" id="hud-time">00:00.0</div>
+        </div>
+        <div class="hud-right">
+          <button class="hud-pause-btn" id="btn-pause" onclick="togglePause()">&#10074;&#10074;</button>
+        </div>
       </div>
-      <div class="hud-center">
-        <div class="hud-speed" id="hud-speed"><span class="speed-val">0</span> <span class="speed-unit">KM/H</span></div>
-      </div>
-      <div class="hud-right">
-        <div class="hud-time" id="hud-time">00:00.0</div>
-        <div class="hud-best" id="hud-best">BEST: --:--.-</div>
+      <div class="hud-bottom">
+        <div class="hud-speed" id="hud-speed">
+          <span class="speed-val">0</span>
+          <span class="speed-unit">KM/H</span>
+        </div>
       </div>
     </div>
 
     <div class="hud-minimap" id="hud-minimap">
-      <canvas id="minimap-canvas" width="100" height="100"></canvas>
+      <canvas id="minimap-canvas" width="120" height="120"></canvas>
     </div>
 
     <!-- Countdown overlay -->
@@ -102,6 +174,15 @@
         <div class="finish-time" id="finish-time">00:00.0</div>
       </div>
     </div>
+
+    <!-- Pause overlay -->
+    <div class="race-overlay" id="race-paused">
+      <div class="pause-content">
+        <div class="pause-title">PAUSED</div>
+        <button class="menu-btn menu-btn-primary" onclick="togglePause()">RESUME</button>
+        <button class="menu-btn menu-btn-secondary" onclick="quitRace()">QUIT RACE</button>
+      </div>
+    </div>
   </div>
 
   <!-- ─── Screen: Results ─── -->
@@ -115,8 +196,8 @@
       <div class="results-table" id="results-table"></div>
     </div>
     <div class="screen-footer">
-      <button class="menu-btn menu-btn-primary" onclick="showScreen('track-select')">RACE AGAIN</button>
-      <button class="menu-btn menu-btn-secondary menu-btn-spaced" onclick="showScreen('menu')">MAIN MENU</button>
+      <button class="menu-btn menu-btn-primary" onclick="showScreen('track-select')">&#128260; RACE AGAIN</button>
+      <button class="menu-btn menu-btn-secondary menu-btn-spaced" onclick="showScreen('menu')">&#127968; MAIN MENU</button>
     </div>
   </div>
 

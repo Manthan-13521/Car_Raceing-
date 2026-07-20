@@ -52,7 +52,7 @@ function startRace() {
     accel: 0.008 + (s.accel / 100) * 0.032,
     brakeForce: 0.03,
     friction: 0.985,
-    handling: 1.0 + (s.handling / 100) * 4.0,
+    handling: 1.5 + (s.handling / 100) * 4.0,
     boostPower: 1.0 + (s.boost / 100) * 0.5,
     wheelAngle: 0,
     lap: 0,
@@ -160,9 +160,14 @@ function startCountdownRace() {
 function raceLoop() {
   const now = performance.now();
   const rawDt = (now - lastTimestamp) / 1000;
-  const dt = Math.min(rawDt, 0.05); // cap delta time
   lastTimestamp = now;
 
+  if (isPaused) {
+    raceAnimFrame = requestAnimationFrame(raceLoop);
+    return;
+  }
+
+  const dt = Math.min(rawDt, 0.05);
   const track = getSelectedTrack();
 
   if (raceState === 'racing') {
@@ -328,20 +333,20 @@ function updatePlayer(dt, trackPts) {
         }
 
         if (zone.type === 'hazard') {
-          player.speed *= (1 - zone.strength * 0.4 * effectMult);
-          player.zoneCooldown = 1.0;
+          player.speed *= (1 - zone.strength * 0.25 * effectMult);
+          player.zoneCooldown = 1.5;
         } else if (zone.type === 'boost') {
-          player.speed = Math.min(player.maxSpeed * 1.3, player.speed + zone.strength * effectMult);
-          player.boostTimer = 0.5;
-          player.zoneCooldown = 0.5;
+          player.speed = Math.min(player.maxSpeed * 1.4, player.speed + zone.strength * effectMult * 1.2);
+          player.boostTimer = 0.6;
+          player.zoneCooldown = 0.8;
         } else if (zone.type === 'spin') {
           if (effectMult > 0.3) {
-            player.spinTimer = zone.strength * 0.6 * effectMult;
-            player.speed *= 0.5;
-            player.zoneCooldown = 2.0;
+            player.spinTimer = zone.strength * 0.4 * effectMult;
+            player.speed *= 0.6;
+            player.zoneCooldown = 2.5;
           }
         } else if (zone.type === 'ice') {
-          player.gripModifier = 1.0 - zone.strength * 0.5;
+          player.gripModifier = 1.0 - zone.strength * 0.35;
         }
         break;
       }
@@ -361,11 +366,11 @@ function updatePlayer(dt, trackPts) {
   const offX = player.x - closestPt.x;
   const offY = player.y - closestPt.y;
   const offDist = Math.sqrt(offX*offX + offY*offY);
-  if (offDist > 50) {
-    const pull = 0.03;
+  if (offDist > 60) {
+    const pull = 0.025;
     player.x -= offX * pull;
     player.y -= offY * pull;
-    player.speed *= 0.95; // slowdown off-road
+    player.speed *= 0.92;
   }
 }
 
@@ -573,11 +578,39 @@ function renderCheckpoints(ctx, camX, camY, zoom) {
 
 // ─── Keyboard handling ─────────────────────────────────────────────
 
+let isPaused = false;
+
 window.keysDown = {};
 window.addEventListener('keydown', (e) => {
   window.keysDown[e.key] = true;
   if (e.key === ' ' || e.key === 'Enter') e.preventDefault();
+  if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+    if (raceState === 'racing' || raceState === 'countdown') {
+      togglePause();
+    }
+  }
 });
 window.addEventListener('keyup', (e) => {
   window.keysDown[e.key] = false;
 });
+
+// ─── Pause / Quit ──────────────────────────────────────────────────
+
+function togglePause() {
+  if (raceState !== 'racing' && raceState !== 'countdown') return;
+  isPaused = !isPaused;
+  document.getElementById('race-paused').classList.toggle('active', isPaused);
+  if (!isPaused && raceState === 'racing') {
+    lastTimestamp = performance.now();
+  }
+}
+
+function quitRace() {
+  isPaused = false;
+  raceState = 'idle';
+  document.getElementById('race-paused').classList.remove('active');
+  document.getElementById('race-finish').classList.remove('active');
+  if (raceAnimFrame) { cancelAnimationFrame(raceAnimFrame); raceAnimFrame = null; }
+  if (raceFinishTimeout) { clearTimeout(raceFinishTimeout); raceFinishTimeout = null; }
+  showScreen('menu');
+}

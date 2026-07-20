@@ -1,5 +1,5 @@
 // ─── UI Management ─────────────────────────────────────────────────
-// Screen switching, HUD updates, minimap, car/track select
+// Screen switching, HUD updates, minimap, car/track select, controls, pause
 
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -8,6 +8,13 @@ function showScreen(screenId) {
   if (screenId === 'track-select') {
     renderTrackGrid();
   }
+}
+
+function showControls() {
+  document.getElementById('controls-overlay').classList.add('active');
+}
+function hideControls() {
+  document.getElementById('controls-overlay').classList.remove('active');
 }
 
 function renderTrackGrid() {
@@ -29,18 +36,15 @@ function renderTrackGrid() {
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
 
-    // Background
     ctx.fillStyle = track.bgColor;
     ctx.fillRect(0, 0, w, h);
 
-    // Draw a simplified track outline
     const pts = track.waypoints;
     ctx.strokeStyle = track.roadEdgeColor;
     ctx.lineWidth = 16;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    // Scale to fit canvas with padding
     const pad = 20;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const p of pts) {
@@ -64,7 +68,6 @@ function renderTrackGrid() {
     ctx.closePath();
     ctx.stroke();
 
-    // Road fill
     ctx.strokeStyle = track.roadColor;
     ctx.lineWidth = 8;
     ctx.beginPath();
@@ -90,8 +93,8 @@ function selectTrack(index) {
 
 function updateHUD(state) {
   document.getElementById('hud-pos').textContent = formatPosition(state.playerPosition);
-  document.getElementById('hud-lap').textContent = `LAP ${Math.min(state.playerLap, 3)}/3`;
-  document.getElementById('hud-speed').querySelector('.speed-val').textContent = Math.floor(state.playerSpeed * 120);
+  document.getElementById('hud-lap').textContent = `LAP ${Math.min(state.playerLap + 1, 3)}/3`;
+  document.getElementById('hud-speed').querySelector('.speed-val').textContent = Math.floor(state.playerSpeed * 100);
   document.getElementById('hud-time').textContent = formatTime(state.raceTime);
 }
 
@@ -117,11 +120,9 @@ function updateMinimap(cars, playerIndex, trackPts, track) {
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  // Background
   ctx.fillStyle = 'rgba(10, 12, 18, 0.85)';
   ctx.fillRect(0, 0, w, h);
 
-  // Get bounds
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const p of trackPts) {
     if (p.x < minX) minX = p.x;
@@ -130,15 +131,14 @@ function updateMinimap(cars, playerIndex, trackPts, track) {
     if (p.y > maxY) maxY = p.y;
   }
 
-  const pad = 8;
+  const pad = 10;
   const scaleX = (w - pad*2) / (maxX - minX || 1);
   const scaleY = (h - pad*2) / (maxY - minY || 1);
   const sc = Math.min(scaleX, scaleY);
   const ox = (w - (maxX - minX) * sc) / 2 - minX * sc;
   const oy = (h - (maxY - minY) * sc) / 2 - minY * sc;
 
-  // Draw track outline
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 3;
   ctx.beginPath();
   trackPts.forEach((p, i) => {
@@ -150,22 +150,29 @@ function updateMinimap(cars, playerIndex, trackPts, track) {
   ctx.closePath();
   ctx.stroke();
 
-  // Draw cars
   cars.forEach((car, i) => {
     const x = car.x * sc + ox;
     const y = car.y * sc + oy;
     const isPlayer = i === playerIndex;
-    ctx.fillStyle = isPlayer ? '#00ff41' : '#ff4444';
+    if (isPlayer) {
+      ctx.fillStyle = '#00ff41';
+      ctx.shadowColor = '#00ff41';
+      ctx.shadowBlur = 6;
+    } else {
+      ctx.fillStyle = '#ff4444';
+      ctx.shadowColor = '#ff4444';
+      ctx.shadowBlur = 4;
+    }
     ctx.beginPath();
-    ctx.arc(x, y, isPlayer ? 3 : 2, 0, Math.PI*2);
+    ctx.arc(x, y, isPlayer ? 4 : 3, 0, Math.PI*2);
     ctx.fill();
+    ctx.shadowBlur = 0;
   });
 }
 
 // ─── Results Screen ────────────────────────────────────────────────
 
 function showResults(cars, playerIndex, raceTime) {
-  // Sort by lap (desc), then by progress (desc), then by time (asc for finished)
   const sorted = [...cars].sort((a, b) => {
     if (a.finished && !b.finished) return -1;
     if (!a.finished && b.finished) return 1;
@@ -173,10 +180,6 @@ function showResults(cars, playerIndex, raceTime) {
     return b.progress - a.progress;
   });
 
-  // Re-index positions based on this sorting
-  const playerPos = sorted.findIndex(c => c === cars[playerIndex]) + 1;
-
-  // Podium
   const podium = document.getElementById('results-podium');
   podium.innerHTML = sorted.slice(0, 4).map((car, i) => {
     const pos = i + 1;
@@ -192,7 +195,6 @@ function showResults(cars, playerIndex, raceTime) {
     `;
   }).join('');
 
-  // Table
   const table = document.getElementById('results-table');
   table.innerHTML = `
     <tr><th>POS</th><th>DRIVER</th><th>LAPS</th><th>TIME</th></tr>
@@ -201,11 +203,10 @@ function showResults(cars, playerIndex, raceTime) {
       const isPlayer = car === cars[playerIndex];
       const carName = car.carData ? car.carData.name : `Racer ${pos}`;
       const finishTime = car.finished ? formatTime(car.finishTime) : car.lap >= 3 ? formatTime(car.totalRaceTime) : `LAP ${car.lap}`;
-      return `<tr class="${isPlayer ? 'player-row' : ''}"><td>${pos}</td><td>${isPlayer ? '★ ' : ''}${carName}</td><td>${Math.min(car.lap, 3)}/3</td><td>${finishTime}</td></tr>`;
+      return `<tr class="${isPlayer ? 'player-row' : ''}"><td>${pos}</td><td>${isPlayer ? '★ ' : ''}${carName}</td><td>${Math.min(car.lap + 1, 3)}/3</td><td>${finishTime}</td></tr>`;
     }).join('')}
   `;
 
-  // Update finish overlay with player position
   showScreen('results');
 }
 
@@ -214,6 +215,5 @@ function showResults(cars, playerIndex, raceTime) {
 let raceStartTime = 0;
 
 function initUI() {
-  // Start with car preview
   updateCarPreview();
 }
