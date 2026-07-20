@@ -38,7 +38,6 @@ export class Game {
 
   private speed = 0;
   private baseSpeed = 0.2;
-  private maxSpeed = 3.0;
   private score = 0;
   private raceTime = 0;
   private bestTime = Infinity;
@@ -56,7 +55,6 @@ export class Game {
   private sensitivity = 1.0;
 
   private spawnTimer = 0;
-  private spawnInterval = 100;
   private lastFrameTime = 0;
 
   private shakeIntensity = 0;
@@ -95,6 +93,21 @@ export class Game {
   get handsDetected(): number { return this._handsDetected; }
   get steerCenterX(): number { return this.centerX; }
   get justCollided(): boolean { return this._justCollided; }
+
+  // Progressive difficulty: 0 → 1 over 60s of race time
+  private get difficulty(): number {
+    return Math.min(1, this.raceTime / 60);
+  }
+
+  // Max speed starts low (2.0), ramps up to 4.5
+  private get maxSpeed(): number {
+    return 2.0 + this.difficulty * 2.5;
+  }
+
+  // Spawn interval decreases over time (120 → 30 frames)
+  private get spawnInterval(): number {
+    return 120 - this.difficulty * 90;
+  }
 
   getState(): GameState {
     return {
@@ -530,7 +543,7 @@ export class Game {
     // Spawn obstacles
     this.spawnTimer += dt;
     const interval = Math.max(18, this.spawnInterval - this.speed * 30);
-    if (this.spawnTimer >= interval && this._handsDetected >= 2) {
+    if (this.spawnTimer >= interval && this._handsDetected >= 2 && this.raceTime > 3) {
       this.spawnTimer = 0;
       this.spawnCar();
     }
