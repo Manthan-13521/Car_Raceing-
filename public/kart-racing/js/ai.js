@@ -10,6 +10,7 @@ function createAICar(carIndex, carData) {
   const baseX = 30 + Math.random() * 30 - 15;
   const baseY = 30 + Math.random() * 30 - 15;
 
+  const s = carData.stats;
   return {
     carIndex: carIndex,
     carData: carData,
@@ -17,10 +18,11 @@ function createAICar(carIndex, carData) {
     y: pts[startOffset % pts.length].y + baseY,
     angle: 0,
     speed: 0,
-    maxSpeed: 1.5 + Math.random() * 0.6,
-    accel: 0.015 + Math.random() * 0.01,
-    handling: 1.5 + Math.random(),
-    progress: startOffset, // index along the smooth path
+    maxSpeed: (1.5 + (s.speed / 100) * 3.5) * (0.85 + Math.random() * 0.15),
+    accel: (0.008 + (s.accel / 100) * 0.032) * (0.85 + Math.random() * 0.15),
+    handling: (1.0 + (s.handling / 100) * 4.0) * (0.85 + Math.random() * 0.15),
+    boostPower: 1.0 + (s.boost / 100) * 0.5,
+    progress: startOffset,
     lap: 0,
     finished: false,
     finishTime: 0,
@@ -28,7 +30,7 @@ function createAICar(carIndex, carData) {
     currentLapTime: 0,
     lapStartTime: 0,
     totalRaceTime: 0,
-    personality: {  // Random personality traits
+    personality: {
       aggression: Math.random(),
       consistency: 0.5 + Math.random() * 0.5,
       braking: 0.3 + Math.random() * 0.4,

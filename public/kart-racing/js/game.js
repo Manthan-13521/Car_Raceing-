@@ -13,27 +13,8 @@ let lastTimestamp = 0;
 let raceAnimFrame = null;
 let raceFinishTimeout = null;
 
-// Player car state
-let player = {
-  x: 0, y: 0,
-  angle: 0,
-  speed: 0,
-  maxSpeed: 3.0,
-  accel: 0.02,
-  brakeForce: 0.03,
-  friction: 0.985,
-  handling: 2.5,
-  wheelAngle: 0,
-  lap: 0,
-  progress: 0, // index along track path
-  finished: false,
-  finishTime: 0,
-  currentLapTime: 0,
-  lapStartTime: 0,
-  bestLapTime: 0,
-  totalRaceTime: 0,
-  checkpointHits: {}, // track which checkpoints hit this lap
-};
+// Player car state (initialized in startRace with car stats)
+let player = {};
 
 // ─── Start Race ────────────────────────────────────────────────────
 
@@ -60,16 +41,19 @@ function startRace() {
   raceCars = [];
 
   // Player car
+  const playerCar = getSelectedCar();
+  const s = playerCar.stats;
   player = {
     x: startPt.x + perpX * 0,
     y: startPt.y + perpY * 0,
     angle: startAngle,
     speed: 0,
-    maxSpeed: 3.0,
-    accel: 0.02,
+    maxSpeed: 1.5 + (s.speed / 100) * 3.5,
+    accel: 0.008 + (s.accel / 100) * 0.032,
     brakeForce: 0.03,
     friction: 0.985,
-    handling: 2.5,
+    handling: 1.0 + (s.handling / 100) * 4.0,
+    boostPower: 1.0 + (s.boost / 100) * 0.5,
     wheelAngle: 0,
     lap: 0,
     progress: 0,
@@ -80,16 +64,14 @@ function startRace() {
     bestLapTime: 0,
     totalRaceTime: 0,
     checkpointHits: {},
-    gripModifier: 1.0,     // ice reduces grip
-    spinTimer: 0,           // spin-out duration
-    boostTimer: 0,          // boost duration
-    zoneCooldown: 0,        // prevent rapid re-trigger
+    gripModifier: 1.0,
+    spinTimer: 0,
+    boostTimer: 0,
+    zoneCooldown: 0,
+    carData: playerCar,
+    isPlayer: true,
   };
-
-  const playerCar = getSelectedCar();
-  player.carData = playerCar;
-  player.isPlayer = true;
-  raceCars.push(player); // reference, not copy
+  raceCars.push(player);
 
   // AI cars
   const aiCarIndices = [1, 2, 3, 4].filter(i => i !== selectedCarIndex);
@@ -339,9 +321,8 @@ function updatePlayer(dt, trackPts) {
       if (Math.abs(player.x - zone.x) < zone.w && Math.abs(player.y - zone.y) < zone.h) {
         // Check if player car is Camo Tank (high durability)
         let effectMult = 1.0;
-        const car = getSelectedCar();
-        if (car.id === 'camo-tank' && (zone.type === 'hazard' || zone.type === 'spin')) {
-          effectMult = 0.3; // 70% resistance to hazards
+        if (player.carData && player.carData.id === 'camo-tank' && (zone.type === 'hazard' || zone.type === 'spin')) {
+          effectMult = 0.3;
         }
 
         if (zone.type === 'hazard') {
