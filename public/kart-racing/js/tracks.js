@@ -466,6 +466,175 @@ const ALL_TRACKS = [
     }
   },
   {
+    id: 'f1-gp',
+    name: 'F1 Grand Prix',
+    desc: 'High-speed Monaco-style street circuit with chicanes and grandstands.',
+    color: '#e10600',
+    bgColor: '#1a1a2a',
+    roadColor: '#333344',
+    roadEdgeColor: '#e10600',
+    offroadColor: '#222233',
+    waypoints: [
+      {x: 400, y: 80},    // pit straight start
+      {x: 720, y: 120},   // turn 1 (fast right)
+      {x: 780, y: 300},   // downhill straight
+      {x: 700, y: 420},   // chicane entry
+      {x: 650, y: 380},   // chicane mid
+      {x: 600, y: 450},   // chicane exit
+      {x: 750, y: 600},   // tunnel section
+      {x: 650, y: 750},   // hairpin approach
+      {x: 400, y: 780},   // hairpin apex (tight!)
+      {x: 200, y: 700},   // hairpin exit
+      {x: 80,  y: 550},   // uphill section
+      {x: 50,  y: 350},   // swimming pool entry
+      {x: 150, y: 250},   // swimming pool chicane
+      {x: 100, y: 200},   // swimming pool exit
+      {x: 200, y: 120},   // back to pit straight
+    ],
+    checkpoints: null,
+    zones: [
+      // DRS detection zone (boost)
+      {x: 350, y: 100, w: 30, h: 14, type: 'boost', strength: 1.4},
+      {x: 550, y: 110, w: 30, h: 14, type: 'boost', strength: 1.4},
+      // Barrier contact (hazard)
+      {x: 700, y: 420, w: 16, h: 16, type: 'hazard', strength: 0.6},
+      {x: 600, y: 450, w: 16, h: 16, type: 'hazard', strength: 0.6},
+      // Kerb strips (mild slowdown)
+      {x: 650, y: 750, w: 20, h: 12, type: 'hazard', strength: 0.7},
+      {x: 400, y: 780, w: 20, h: 12, type: 'hazard', strength: 0.7},
+    ],
+    renderScenery: function(ctx, camX, camY, zoom, frame) {
+      // Grandstands along pit straight
+      for (let i = 0; i < 6; i++) {
+        const gx = 120 + i * 80;
+        const gy = 50;
+        const sx = (gx - camX) * zoom + ctx.canvas.width/2;
+        const sy = (gy - camY) * zoom + ctx.canvas.height/2;
+        if (sx < -50 || sx > ctx.canvas.width + 50) continue;
+        // Stand structure
+        ctx.fillStyle = '#444466';
+        ctx.fillRect(sx - 30*zoom, sy - 20*zoom, 60*zoom, 25*zoom);
+        // Seating rows
+        for (let r = 0; r < 4; r++) {
+          const rowColor = r % 2 === 0 ? '#e10600' : '#ffffff';
+          ctx.fillStyle = rowColor;
+          ctx.globalAlpha = 0.5;
+          ctx.fillRect(sx - 28*zoom, sy - 18*zoom + r*6*zoom, 56*zoom, 4*zoom);
+        }
+        ctx.globalAlpha = 1;
+        // Roof
+        ctx.fillStyle = '#555577';
+        ctx.fillRect(sx - 32*zoom, sy - 22*zoom, 64*zoom, 3*zoom);
+      }
+
+      // Armco barriers (red-white) along track edges
+      for (let i = 0; i < 25; i++) {
+        const bx = 80 + i * 28 + Math.sin(i * 1.5) * 15;
+        const by = 200 + Math.cos(i * 2.1) * 150 + i * 15;
+        const sx = (bx - camX) * zoom + ctx.canvas.width/2;
+        const sy = (by - camY) * zoom + ctx.canvas.height/2;
+        if (sx < -15 || sx > ctx.canvas.width + 15) continue;
+        const color = i % 2 === 0 ? '#e10600' : '#ffffff';
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.4;
+        ctx.fillRect(sx - 6*zoom, sy - 2*zoom, 12*zoom, 4*zoom);
+        ctx.globalAlpha = 1;
+      }
+
+      // Pit buildings
+      const pbx = 250, pby = 60;
+      const psx = (pbx - camX) * zoom + ctx.canvas.width/2;
+      const psy = (pby - camY) * zoom + ctx.canvas.height/2;
+      ctx.fillStyle = '#555577';
+      ctx.fillRect(psx - 40*zoom, psy - 15*zoom, 80*zoom, 20*zoom);
+      // Pit crew figures
+      for (let c = 0; c < 4; c++) {
+        const cx2 = psx - 20*zoom + c * 14*zoom;
+        const cy2 = psy + 5*zoom;
+        ctx.fillStyle = c % 2 === 0 ? '#e10600' : '#222';
+        ctx.fillRect(cx2, cy2, 4*zoom, 6*zoom);
+        ctx.fillStyle = '#ffcc88';
+        ctx.beginPath();
+        ctx.arc(cx2 + 2*zoom, cy2 - 2*zoom, 2*zoom, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // DRS zone marker (green)
+      const drsx = 400, drsy = 90;
+      const dsx2 = (drsx - camX) * zoom + ctx.canvas.width/2;
+      const dsy2 = (drsy - camY) * zoom + ctx.canvas.height/2;
+      const drsGlow = 0.5 + Math.sin(frame * 0.06) * 0.3;
+      ctx.fillStyle = `rgba(0, 255, 0, ${drsGlow * 0.3})`;
+      ctx.fillRect(dsx2 - 20*zoom, dsy2 - 6*zoom, 40*zoom, 12*zoom);
+      ctx.fillStyle = '#00ff00';
+      ctx.font = `bold ${7*zoom}px Orbitron, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('DRS', dsx2, dsy2 + 3*zoom);
+
+      // F1 flag checkered pattern at start/finish
+      const fsx = 400, fsy = 75;
+      const sfX = (fsx - camX) * zoom + ctx.canvas.width/2;
+      const sfY = (fsy - camY) * zoom + ctx.canvas.height/2;
+      for (let r = 0; r < 3; r++) {
+        for (let c2 = 0; c2 < 8; c2++) {
+          ctx.fillStyle = (r + c2) % 2 === 0 ? '#fff' : '#111';
+          ctx.fillRect(sfX - 32*zoom + c2*8*zoom, sfY - 4*zoom + r*3*zoom, 8*zoom, 3*zoom);
+        }
+      }
+
+      // Monaco tunnel section indicator
+      const tx = 700, ty = 530;
+      const tsx = (tx - camX) * zoom + ctx.canvas.width/2;
+      const tsy = (ty - camY) * zoom + ctx.canvas.height/2;
+      ctx.fillStyle = 'rgba(100,100,120,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(tsx, tsy, 30*zoom, 20*zoom, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#888899';
+      ctx.font = `bold ${6*zoom}px Orbitron, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('TUNNEL', tsx, tsy + 3*zoom);
+
+      // Floodlights (night race feel)
+      for (let i = 0; i < 12; i++) {
+        const lx = 60 + i * 60;
+        const ly = 150 + Math.sin(i * 2) * 100;
+        const lsx = (lx - camX) * zoom + ctx.canvas.width/2;
+        const lsy = (ly - camY) * zoom + ctx.canvas.height/2;
+        if (lsx < -20 || lsx > ctx.canvas.width + 20) continue;
+        // Pole
+        ctx.fillStyle = '#666';
+        ctx.fillRect(lsx - 1*zoom, lsy, 2*zoom, 15*zoom);
+        // Light glow
+        const glow = 0.3 + Math.sin(frame * 0.04 + i) * 0.15;
+        ctx.fillStyle = `rgba(255, 240, 200, ${glow})`;
+        ctx.beginPath();
+        ctx.arc(lsx, lsy, 4*zoom, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // Yacht in harbor (Monaco style)
+      const yx = 750, yy = 650;
+      const ysx = (yx - camX) * zoom + ctx.canvas.width/2;
+      const ysy = (yy - camY) * zoom + ctx.canvas.height/2;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(ysx - 20*zoom, ysy);
+      ctx.lineTo(ysx + 20*zoom, ysy);
+      ctx.lineTo(ysx + 15*zoom, ysy - 5*zoom);
+      ctx.lineTo(ysx - 15*zoom, ysy - 5*zoom);
+      ctx.closePath();
+      ctx.fill();
+      // Mast
+      ctx.strokeStyle = '#aaa';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(ysx, ysy - 5*zoom);
+      ctx.lineTo(ysx, ysy - 18*zoom);
+      ctx.stroke();
+    }
+  },
+  {
     id: 'sky-islands',
     name: 'Rainbow Sky Islands',
     desc: 'Floating islands connected by glass tubes.',
