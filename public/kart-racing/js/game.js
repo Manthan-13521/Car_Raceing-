@@ -100,16 +100,18 @@ function startRace() {
 
   showScreen('race');
 
+  // Resize canvas after screen is visible (display: flex)
+  resizeRaceCanvas();
+
   // Start countdown
   startCountdownRace();
 }
 
 function resizeRaceCanvas() {
   if (!raceCanvas) return;
-  raceCanvas.width = raceCanvas.clientWidth * (window.devicePixelRatio || 1);
-  raceCanvas.height = raceCanvas.clientHeight * (window.devicePixelRatio || 1);
+  raceCanvas.width = raceCanvas.clientWidth;
+  raceCanvas.height = raceCanvas.clientHeight;
   raceCtx = raceCanvas.getContext('2d');
-  raceCtx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
 }
 
 window.addEventListener('resize', resizeRaceCanvas);
@@ -387,10 +389,8 @@ function renderRace(track) {
   const ctx = raceCtx;
   if (!ctx) return;
 
-  const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, w, h);
 
   // Camera follows player
