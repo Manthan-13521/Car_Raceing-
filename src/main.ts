@@ -41,7 +41,21 @@ const hudLap = document.getElementById('hud-lap')!;
 const hudTime = document.getElementById('hud-time')!;
 const hudBest = document.getElementById('hud-best')!;
 const hudSpeed = document.getElementById('hud-speed')!;
-const hudLapInfo = document.getElementById('hud-lap-info')!;
+const speedArc = document.getElementById('speed-arc')!;
+
+const countdownOverlay = document.getElementById('countdown-overlay')!;
+const countdownNum = document.getElementById('countdown-num')!;
+
+const statusAuto = document.getElementById('status-auto')!;
+const statusAutoDot = document.getElementById('status-auto-dot')!;
+const speedVignette = document.getElementById('speed-vignette')!;
+const collisionFlash = document.getElementById('collision-flash')!;
+
+const resultsRetry = document.getElementById('results-retry')!;
+const resultsMenu = document.getElementById('results-menu')!;
+
+const panelLeft = document.getElementById('panel-left')!;
+const panelToggle = document.getElementById('panel-toggle')!;
 
 // ─── State ──────────────────────────────────────────────────────────
 let game: Game;
@@ -53,20 +67,32 @@ let autoAccelerate = false;
 let gyroscopeMode = false;
 let gyroTilt = 0;
 
-const statusAuto = document.getElementById('status-auto')!;
-const statusAutoDot = document.getElementById('status-auto-dot')!;
-const speedVignette = document.getElementById('speed-vignette')!;
-const collisionFlash = document.getElementById('collision-flash')!;
-
 // Audio
 let audioCtx: AudioContext | null = null;
 let engineOsc: OscillatorNode | null = null;
 let engineGain: GainNode | null = null;
 let engineRunning = false;
 
+// Countdown
+let countdownActive = false;
+let countdownTimer = 0;
+let countdownStep = 3;
+let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
 let overlayFps = 0;
 let fpsCounter = 0;
 let lastFpsTime = performance.now();
+
+// ─── Panel toggle ───────────────────────────────────────────────────
+panelToggle.addEventListener('click', () => {
+  panelLeft.classList.toggle('collapsed');
+  setTimeout(() => {
+    if (game) {
+      const viewport = document.getElementById('game-viewport')!;
+      game.resize(viewport.clientWidth, viewport.clientHeight);
+    }
+  }, 350);
+});
 
 // ─── Camera overlay drawing ────────────────────────────────────────
 function drawCamOverlay(data: HandData): void {
@@ -87,7 +113,6 @@ function drawCamOverlay(data: HandData): void {
   for (let hi = 0; hi < data.landmarks.length; hi++) {
     const lm = data.landmarks[hi];
 
-    // Bounding box
     if (lm.length > 0) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const p of lm) {
@@ -98,22 +123,21 @@ function drawCamOverlay(data: HandData): void {
         if (px > maxX) maxX = px;
         if (py > maxY) maxY = py;
       }
-      const pad = 10;
+      const pad = 8;
       minX = Math.max(0, minX - pad);
       minY = Math.max(0, minY - pad);
       maxX = Math.min(w, maxX + pad);
       maxY = Math.min(h, maxY + pad);
 
-      ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0, 255, 65, 0.25)';
+      ctx.lineWidth = 1;
       ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
     }
 
-    // Skeleton
     for (const [i, j] of HAND_CONNECTIONS) {
       if (i < lm.length && j < lm.length) {
-        ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(0, 255, 65, 0.25)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(lm[i].x * w, lm[i].y * h);
         ctx.lineTo(lm[j].x * w, lm[j].y * h);
@@ -121,30 +145,27 @@ function drawCamOverlay(data: HandData): void {
       }
     }
 
-    // Points
     for (const p of lm) {
-      ctx.fillStyle = 'rgba(0, 255, 65, 0.5)';
+      ctx.fillStyle = 'rgba(0, 255, 65, 0.4)';
       ctx.beginPath();
       ctx.arc(p.x * w, p.y * h, 2, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Finger tips
     for (const tipIdx of [4, 8, 12, 16, 20]) {
       if (tipIdx < lm.length) {
         const p = lm[tipIdx];
-        ctx.fillStyle = 'rgba(0, 255, 65, 0.8)';
+        ctx.fillStyle = 'rgba(0, 255, 65, 0.7)';
         ctx.beginPath();
-        ctx.arc(p.x * w, p.y * h, 3.5, 0, Math.PI * 2);
+        ctx.arc(p.x * w, p.y * h, 3, 0, Math.PI * 2);
         ctx.fill();
       }
     }
   }
 
-  // Border glow when driving
   if (data.handsDetected >= 2) {
-    ctx.strokeStyle = 'rgba(0, 255, 65, 0.2)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0, 255, 65, 0.15)';
+    ctx.lineWidth = 1.5;
     ctx.strokeRect(2, 2, w - 4, h - 4);
   }
 }
@@ -164,7 +185,7 @@ function drawHandSkeleton(data: HandData): void {
 
   for (const [i, j] of HAND_CONNECTIONS) {
     if (i < lm.length && j < lm.length) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(lm[i].x * w, lm[i].y * h);
@@ -174,7 +195,7 @@ function drawHandSkeleton(data: HandData): void {
   }
 
   for (const p of lm) {
-    ctx.fillStyle = 'rgba(0, 255, 65, 0.4)';
+    ctx.fillStyle = 'rgba(0, 255, 65, 0.3)';
     ctx.beginPath();
     ctx.arc(p.x * w, p.y * h, 1.5, 0, Math.PI * 2);
     ctx.fill();
@@ -183,7 +204,7 @@ function drawHandSkeleton(data: HandData): void {
   for (const tipIdx of [4, 8, 12, 16, 20]) {
     if (tipIdx < lm.length) {
       const p = lm[tipIdx];
-      ctx.fillStyle = 'rgba(0, 255, 65, 0.7)';
+      ctx.fillStyle = 'rgba(0, 255, 65, 0.6)';
       ctx.beginPath();
       ctx.arc(p.x * w, p.y * h, 2.5, 0, Math.PI * 2);
       ctx.fill();
@@ -200,20 +221,15 @@ function updateSteeringUI(centerX: number, handsDetected: number): void {
 
   steerSub.textContent =
     handsDetected >= 2
-      ? dir === 'LEFT'
-        ? 'Steering left'
-        : dir === 'RIGHT'
-          ? 'Steering right'
+      ? dir === 'LEFT' ? 'Steering left'
+        : dir === 'RIGHT' ? 'Steering right'
           : 'Keep hands steady'
-      : handsDetected === 1
-        ? 'Show both hands'
+      : handsDetected === 1 ? 'Show both hands'
         : 'No hands detected';
 
-  // Steering wheel rotation
   const angle = (centerX - 0.5) * 80;
   steerLine?.setAttribute('transform', `rotate(${angle}, 50, 50)`);
 
-  // Arc color
   if (dir === 'LEFT') {
     steerArc.setAttribute('stroke', 'var(--blue)');
     steerLine.setAttribute('stroke', 'var(--blue)');
@@ -227,7 +243,7 @@ function updateSteeringUI(centerX: number, handsDetected: number): void {
 }
 
 // ─── Telemetry update ──────────────────────────────────────────────
-function updateTelemetry(data: HandData, _state: GameState): void {
+function updateTelemetry(data: HandData): void {
   telemFps.textContent = `${overlayFps}`;
   camFpsLabel.textContent = `FPS: ${overlayFps}`;
 
@@ -238,7 +254,7 @@ function updateTelemetry(data: HandData, _state: GameState): void {
             (data.landmarks[0][0].y - data.landmarks[1][0].y) ** 2,
         ) * 800
       : 0;
-  telemHandDist.textContent = dist > 0 ? `${Math.floor(dist)} px` : '-- px';
+  telemHandDist.textContent = dist > 0 ? `${Math.floor(dist)}` : '--';
 
   const dirLabel = getDirection(data.centerX);
   telemLR.textContent = dirLabel === 'LEFT' ? 'LEFT' : dirLabel === 'RIGHT' ? 'RIGHT' : 'CENTER';
@@ -248,21 +264,57 @@ function updateTelemetry(data: HandData, _state: GameState): void {
 
 // ─── Game HUD update ───────────────────────────────────────────────
 function updateGameHUD(state: GameState): void {
-  hudPosition.textContent = `${state.position}/${state.totalCars}`;
-  hudLap.textContent = `${state.lap}/${state.totalLaps}`;
+  // Position (Tier 1 — always visible)
+  const posNum = state.gameOver ? state.totalCars : state.position;
+  hudPosition.textContent = `${posNum}`;
 
-  // Countdown timer
+  // Lap (Tier 1 — always visible)
+  hudLap.textContent = `${Math.min(state.lap, state.totalLaps)}/${state.totalLaps}`;
+
+  // Time (Tier 1 — always visible)
   const remaining = Math.max(0, state.raceDuration - state.raceTime);
   const mins = Math.floor(remaining / 60);
   const secs = Math.floor(remaining % 60);
-  hudTime.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  hudTime.style.color = remaining < 10 ? 'var(--red)' : '';
+  hudTime.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
 
-  hudLapInfo.textContent = `TIME ${mins}:${secs.toString().padStart(2, '0')}`;
+  // Timer urgency
+  if (remaining < 10 && remaining > 0) {
+    hudTime.classList.add('urgent');
+  } else {
+    hudTime.classList.remove('urgent');
+  }
 
-  hudBest.textContent = `Score: ${Math.floor(state.score)}`;
+  // Score (Tier 2)
+  hudBest.textContent = `${Math.floor(state.score)}`;
 
-  hudSpeed.textContent = `${game ? game.getSpeedKmh() : 0}`;
+  // Speed (Tier 1 — always visible)
+  const speedKmh = game ? game.getSpeedKmh() : 0;
+  hudSpeed.textContent = `${speedKmh}`;
+
+  // Speed digital styling (quiet-by-default, flare on high speed)
+  const speedFrac = game ? game.speed / 3 : 0;
+  if (speedFrac > 0.85) {
+    hudSpeed.className = 'speed-num max';
+  } else if (speedFrac > 0.5) {
+    hudSpeed.className = 'speed-num fast';
+  } else {
+    hudSpeed.className = 'speed-num';
+  }
+
+  // Speed gauge arc (analog + digital combo per hud-design.md)
+  if (speedArc) {
+    const maxOffset = 157;
+    const fill = speedFrac * maxOffset;
+    speedArc.setAttribute('stroke-dashoffset', `${maxOffset - fill}`);
+
+    if (speedFrac > 0.85) {
+      speedArc.setAttribute('stroke', 'var(--gold)');
+    } else if (speedFrac > 0.5) {
+      speedArc.setAttribute('stroke', 'var(--blue)');
+    } else {
+      speedArc.setAttribute('stroke', 'var(--green)');
+    }
+  }
 }
 
 // ─── Status update ─────────────────────────────────────────────────
@@ -274,13 +326,61 @@ function updateStatus(): void {
   statusCamera.textContent = cameraActive ? 'Active' : 'Inactive';
   statusCamera.className = `status-val ${cameraActive ? '' : 'inactive'}`;
   statusCameraDot.style.background = cameraActive ? 'var(--green)' : '#f44';
-  statusCameraDot.style.boxShadow = cameraActive ? '0 0 6px var(--green)' : '0 0 6px #f44';
+  statusCameraDot.style.boxShadow = cameraActive ? '0 0 5px var(--green)' : '0 0 5px #f44';
   navCamDot.className = `cam-dot ${cameraActive ? 'on' : ''}`;
   navCamText.textContent = cameraActive ? 'Camera: ON' : 'Camera: OFF';
   statusAuto.textContent = autoAccelerate ? 'ON' : 'OFF';
   statusAuto.className = `status-val ${autoAccelerate ? '' : 'inactive'}`;
   statusAutoDot.style.background = autoAccelerate ? 'var(--gold)' : 'var(--text3)';
-  statusAutoDot.style.boxShadow = autoAccelerate ? '0 0 6px var(--gold)' : 'none';
+  statusAutoDot.style.boxShadow = autoAccelerate ? '0 0 5px var(--gold)' : 'none';
+}
+
+// ─── Countdown ─────────────────────────────────────────────────────
+function startCountdown(callback: () => void): void {
+  if (countdownActive) return;
+  countdownActive = true;
+  countdownStep = 3;
+  countdownOverlay.classList.remove('hidden');
+  countdownNum.textContent = '3';
+  countdownNum.className = 'countdown-num';
+
+  // Reset animation
+  countdownNum.style.animation = 'none';
+  void countdownNum.offsetHeight;
+  countdownNum.style.animation = '';
+
+  let step = 3;
+  countdownInterval = setInterval(() => {
+    step--;
+    if (step > 0) {
+      countdownNum.textContent = `${step}`;
+      countdownNum.className = 'countdown-num';
+      countdownNum.style.animation = 'none';
+      void countdownNum.offsetHeight;
+      countdownNum.style.animation = '';
+    } else if (step === 0) {
+      countdownNum.textContent = 'GO';
+      countdownNum.className = 'countdown-num go';
+      countdownNum.style.animation = 'none';
+      void countdownNum.offsetHeight;
+      countdownNum.style.animation = '';
+    } else {
+      clearInterval(countdownInterval!);
+      countdownInterval = null;
+      countdownActive = false;
+      countdownOverlay.classList.add('hidden');
+      callback();
+    }
+  }, 800);
+}
+
+function cancelCountdown(): void {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  countdownActive = false;
+  countdownOverlay.classList.add('hidden');
 }
 
 // ─── Keyboard callback ─────────────────────────────────────────────
@@ -300,9 +400,12 @@ function onKeys(newKeys: GameKeys): void {
     if (keys.up) {
       game.setHandData(game.steerCenterX, 2);
       if (!game.started || game.gameOver) {
-        game.start();
-        document.getElementById('game-overlay')!.classList.remove('visible');
-        document.getElementById('game-over-overlay')!.classList.remove('visible');
+        cancelCountdown();
+        startCountdown(() => {
+          game.start();
+          document.getElementById('game-overlay')!.classList.remove('visible');
+          document.getElementById('game-over-overlay')!.classList.remove('visible');
+        });
       }
     } else if (keys.left || keys.right) {
       const steerX = keys.left ? 0 : 1;
@@ -326,20 +429,24 @@ function onHandData(data: HandData): void {
     game.setHandSkeleton(data.landmarks[0]);
   }
 
-  if (!game.started && data.handsDetected >= 2) {
-    game.start();
-    document.getElementById('game-overlay')!.classList.remove('visible');
-    document.getElementById('game-over-overlay')!.classList.remove('visible');
+  if (!game.started && data.handsDetected >= 2 && !countdownActive) {
+    startCountdown(() => {
+      game.start();
+      document.getElementById('game-overlay')!.classList.remove('visible');
+      document.getElementById('game-over-overlay')!.classList.remove('visible');
+    });
   }
 
-  if (game.gameOver && data.handsDetected >= 2) {
-    game.start();
-    document.getElementById('game-over-overlay')!.classList.remove('visible');
+  if (game.gameOver && data.handsDetected >= 2 && !countdownActive) {
+    startCountdown(() => {
+      game.start();
+      document.getElementById('game-over-overlay')!.classList.remove('visible');
+    });
   }
 
   drawCamOverlay(data);
   drawHandSkeleton(data);
-  updateTelemetry(data, game.getState());
+  updateTelemetry(data);
 }
 
 // ─── Game loop ─────────────────────────────────────────────────────
@@ -353,11 +460,11 @@ function gameLoop(): void {
   }
 
   if (game) {
-    // ── Auto-accelerate layer: runs alongside other inputs ──
+    // Auto-accelerate layer
     if (autoAccelerate && !keys.up) {
       let steerX = game.steerCenterX;
       if (touchActive) {
-        // touch steering already set by applyTouchState, keep it
+        // touch steering already set by applyTouchState
       } else if (gyroscopeMode) {
         steerX = 0.5 + gyroTilt * 0.4;
       } else if (keys.left || keys.right) {
@@ -365,12 +472,14 @@ function gameLoop(): void {
       }
       game.setHandData(steerX, 2);
       if (!game.started) {
-        game.start();
-        document.getElementById('game-overlay')!.classList.remove('visible');
-        document.getElementById('game-over-overlay')!.classList.remove('visible');
+        startCountdown(() => {
+          game.start();
+          document.getElementById('game-overlay')!.classList.remove('visible');
+          document.getElementById('game-over-overlay')!.classList.remove('visible');
+        });
       }
     }
-    // ── Gyroscope layer: only when gyro on, no keyboard/touch overrides ──
+    // Gyroscope layer
     else if (gyroscopeMode && !touchActive && !keys.left && !keys.right) {
       const gyroCenterX = 0.5 + gyroTilt * 0.4;
       const gyroHands = keys.up ? 2 : 0;
@@ -400,7 +509,7 @@ function gameLoop(): void {
     if (state.justCollided) {
       collisionFlash.classList.add('active');
       playCollisionSound();
-      setTimeout(() => collisionFlash.classList.remove('active'), 500);
+      setTimeout(() => collisionFlash.classList.remove('active'), 450);
     }
 
     const startOvr = document.getElementById('game-overlay')!;
@@ -462,9 +571,12 @@ function setupTouchControls(): void {
       else if (touchRightHeld) steerX = 1;
       game.setHandData(steerX, 2);
       if (!game.started || game.gameOver) {
-        game.start();
-        document.getElementById('game-overlay')!.classList.remove('visible');
-        document.getElementById('game-over-overlay')!.classList.remove('visible');
+        cancelCountdown();
+        startCountdown(() => {
+          game.start();
+          document.getElementById('game-overlay')!.classList.remove('visible');
+          document.getElementById('game-over-overlay')!.classList.remove('visible');
+        });
       }
     } else if (touchLeftHeld) {
       game.setHandData(0, autoAccelerate ? 2 : 1);
@@ -502,7 +614,6 @@ function setupTouchControls(): void {
     if (touchActive) applyTouchState();
   });
 
-  // Toggle gyroscope mode on double-tap of mode label
   let lastTap = 0;
   modeLabel.addEventListener('click', () => {
     const now = Date.now();
@@ -528,7 +639,6 @@ function deviceOrientationInit(): void {
 
   orientationListener = (e: DeviceOrientationEvent) => {
     if (e.gamma == null) return;
-    // gamma: -90 (tilt left) to 90 (tilt right)
     gyroTilt = Math.max(-1, Math.min(1, e.gamma / 45));
   };
 
@@ -599,17 +709,13 @@ function drawSpeedLines(speed: number): void {
 
   ctx.clearRect(0, 0, w, h);
 
-  // Dashboard gauge
-  drawGauge(ctx, w, h, speed);
-
-  // Speed lines
   const intensity = Math.max(0, (speed - 0.5) / 2.5);
   if (intensity <= 0) return;
 
   const numLines = Math.floor(intensity * 30);
   speedLineOffset += speed * 0.3;
 
-  ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.12})`;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.1})`;
   ctx.lineWidth = 1;
 
   for (let i = 0; i < numLines; i++) {
@@ -634,43 +740,6 @@ function drawSpeedLines(speed: number): void {
   ctx.globalAlpha = 1;
 }
 
-function drawGauge(ctx: CanvasRenderingContext2D, w: number, h: number, speed: number): void {
-  const speedKmh = Math.floor(speed * 120);
-  const speedFrac = Math.min(1, speed / 3);
-  const cx = w / 2;
-  const cy = h - 28;
-  const r = Math.min(w, h) * 0.16;
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI * 1.1, Math.PI * 1.9);
-  ctx.stroke();
-
-  const green = Math.floor(255 * (1 - speedFrac * 0.5));
-  const blue = Math.floor(65 + speedFrac * 50);
-  ctx.strokeStyle = `rgba(0, ${green}, ${blue}, 0.5)`;
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI * 1.1, Math.PI * 1.1 + Math.PI * 0.8 * speedFrac);
-  ctx.stroke();
-
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = 'bold 24px Consolas, monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(`${speedKmh}`, cx, cy);
-
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.font = '9px system-ui, sans-serif';
-  ctx.fillText('KM/H', cx, cy + 18);
-
-  const gear = speed < 0.5 ? 'N' : speed < 0.8 ? '1' : speed < 1.2 ? '2' : speed < 1.8 ? '3' : speed < 2.4 ? '4' : '5';
-  ctx.fillStyle = 'rgba(0, 255, 65, 0.6)';
-  ctx.font = 'bold 14px system-ui, sans-serif';
-  ctx.fillText(`Gear ${gear}`, cx, cy - r - 12);
-}
-
 // ─── Init ──────────────────────────────────────────────────────────
 async function init(): Promise<void> {
   game = new Game(gameCanvas);
@@ -682,12 +751,13 @@ async function init(): Promise<void> {
   setupTouchControls();
   deviceOrientationInit();
 
-  // Init audio on first interaction (browser policy)
+  // Init audio on first interaction
   const initAudioOnce = () => { initAudio(); window.removeEventListener('click', initAudioOnce); window.removeEventListener('keydown', initAudioOnce); window.removeEventListener('touchstart', initAudioOnce); };
   window.addEventListener('click', initAudioOnce, { once: true });
   window.addEventListener('keydown', initAudioOnce, { once: true });
   window.addEventListener('touchstart', initAudioOnce, { once: true });
 
+  // U key toggle
   window.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'u') {
       e.preventDefault();
@@ -698,6 +768,21 @@ async function init(): Promise<void> {
       if (uBox) uBox.classList.toggle('active', autoAccelerate);
       updateStatus();
     }
+  });
+
+  // Results buttons
+  resultsRetry.addEventListener('click', () => {
+    cancelCountdown();
+    startCountdown(() => {
+      game.start();
+      document.getElementById('game-over-overlay')!.classList.remove('visible');
+    });
+  });
+
+  resultsMenu.addEventListener('click', () => {
+    cancelCountdown();
+    document.getElementById('game-over-overlay')!.classList.remove('visible');
+    document.getElementById('game-overlay')!.classList.add('visible');
   });
 
   faceLabel.style.display = 'none';

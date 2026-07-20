@@ -6,13 +6,13 @@
   <title>Virtual Steering</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <!-- Nav Bar -->
+  <!-- ─── Nav Bar ─── -->
   <header class="nav">
     <div class="nav-left">
       <div class="nav-logo">&#9673;</div>
@@ -24,15 +24,17 @@
         <span id="nav-cam-text">Camera: OFF</span>
       </div>
       <button class="nav-btn" id="btn-settings" title="Settings">&#9881;</button>
-      <button class="nav-btn" id="btn-minimize" title="Minimize">&#8722;</button>
-      <button class="nav-btn" id="btn-close" title="Close">&#10005;</button>
     </div>
   </header>
 
-  <!-- Main Layout -->
+  <!-- ─── Main App ─── -->
   <main class="app">
-    <!-- LEFT PANEL -->
-    <section class="panel-left">
+    <!-- LEFT PANEL (collapsible on desktop) -->
+    <aside class="panel-left" id="panel-left">
+      <button class="panel-toggle" id="panel-toggle" title="Toggle panel">
+        <svg viewBox="0 0 24 24" width="16" height="16"><polyline points="9,4 3,12 9,20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
       <!-- Camera Feed -->
       <div class="card card-cam">
         <div class="card-header">
@@ -55,17 +57,17 @@
         </div>
       </div>
 
-      <!-- Steering Direction -->
+      <!-- Steering Visual -->
       <div class="card card-steer">
         <div class="steer-visual">
           <svg class="steer-wheel-svg" viewBox="0 0 100 100" id="steer-svg">
-            <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4" />
-            <circle cx="50" cy="50" r="38" fill="none" stroke="var(--green)" stroke-width="4"
+            <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="4" />
+            <circle cx="50" cy="50" r="38" fill="none" stroke="var(--accent)" stroke-width="4"
               stroke-dasharray="239" stroke-dashoffset="0" id="steer-arc"
-              stroke-linecap="round" style="transition: stroke-dashoffset 0.1s" />
-            <line x1="50" y1="50" x2="50" y2="16" stroke="var(--green)" stroke-width="2.5"
-              stroke-linecap="round" id="steer-line" />
-            <circle cx="50" cy="50" r="4" fill="var(--green)" />
+              stroke-linecap="round" style="transition: stroke-dashoffset 0.1s, stroke 0.2s" />
+            <line x1="50" y1="50" x2="50" y2="16" stroke="var(--accent)" stroke-width="2.5"
+              stroke-linecap="round" id="steer-line" style="transition: stroke 0.2s" />
+            <circle cx="50" cy="50" r="4" fill="var(--accent)" />
           </svg>
         </div>
         <div class="steer-info">
@@ -74,22 +76,22 @@
         </div>
       </div>
 
-      <!-- Telemetry Grid -->
+      <!-- Telemetry -->
       <div class="telemetry-grid">
         <div class="telem-item">
           <span class="telem-label">FPS</span>
-          <span class="telem-val" id="telem-fps">30</span>
+          <span class="telem-val" id="telem-fps">--</span>
         </div>
         <div class="telem-item">
           <span class="telem-label">HAND DIST</span>
-          <span class="telem-val" id="telem-hand-dist">-- px</span>
+          <span class="telem-val" id="telem-hand-dist">--</span>
         </div>
         <div class="telem-item">
-          <span class="telem-label">LEFT / RIGHT</span>
+          <span class="telem-label">DIR</span>
           <span class="telem-val" id="telem-lr">CENTER</span>
         </div>
         <div class="telem-item">
-          <span class="telem-label">CONFIDENCE</span>
+          <span class="telem-label">CONF</span>
           <span class="telem-val" id="telem-confidence">--</span>
         </div>
       </div>
@@ -99,113 +101,26 @@
         <div class="keys-row">
           <div class="key-box" data-key="w">
             <span class="key-label">W</span>
-            <span class="key-desc">ACCELERATE</span>
+            <span class="key-desc">GAS</span>
           </div>
           <div class="key-box" data-key="a">
             <span class="key-label">A</span>
-            <span class="key-desc">TURN LEFT</span>
+            <span class="key-desc">LEFT</span>
           </div>
           <div class="key-box" data-key="d">
             <span class="key-label">D</span>
-            <span class="key-desc">TURN RIGHT</span>
+            <span class="key-desc">RIGHT</span>
           </div>
           <div class="key-box" data-key="u">
             <span class="key-label">U</span>
-            <span class="key-desc">AUTO ACCEL</span>
-          </div>
-          <div class="key-box" data-key="q">
-            <span class="key-label">Q</span>
-            <span class="key-desc">QUIT</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- RIGHT PANEL -->
-    <section class="panel-right">
-      <!-- Game Card -->
-      <div class="card card-game">
-        <div class="card-header">
-          <span class="card-dot dot-green"></span>
-          <span class="card-label">RACING GAME</span>
-        </div>
-        <div class="game-viewport" id="game-viewport">
-          <canvas id="game"></canvas>
-          <canvas id="game-overlay-canvas"></canvas>
-          <canvas id="hand-skeleton-canvas"></canvas>
-
-          <!-- Juice overlays -->
-          <div class="speed-vignette" id="speed-vignette"></div>
-          <div class="collision-flash" id="collision-flash"></div>
-
-          <!-- HUD Overlay -->
-          <div class="hud">
-            <div class="hud-top-left">
-              <div class="hud-label">POSITION</div>
-              <div class="hud-val hud-pos" id="hud-position">2/6</div>
-              <div class="hud-label">LAP</div>
-              <div class="hud-val hud-lap" id="hud-lap">1/2</div>
-            </div>
-            <div class="hud-top-right">
-              <div class="hud-label">TIME</div>
-              <div class="hud-val hud-time" id="hud-time">00:00.000</div>
-              <div class="hud-label">BEST</div>
-              <div class="hud-val hud-best" id="hud-best">--:--.---</div>
-              <div class="hud-speed-val" id="hud-speed">0</div>
-              <div class="hud-speed-unit">KM/H</div>
-            </div>
-            <div class="hud-bottom-center">
-              <div class="hud-track-name">TRACK</div>
-              <div class="hud-track-title">NIGHT DRIVE</div>
-              <div class="hud-lap-info" id="hud-lap-info">LAP 1/2</div>
-            </div>
-          </div>
-
-          <!-- Start Overlay -->
-          <div class="game-overlay visible" id="game-overlay">
-            <div class="overlay-content">
-              <div class="overlay-icon">&#127939;</div>
-              <div class="overlay-title">READY TO RACE</div>
-              <div class="overlay-sub">Show both hands to start</div>
-              <div class="overlay-hint">Or press W to accelerate</div>
-            </div>
-          </div>
-
-          <!-- Game Over Overlay -->
-          <div class="game-overlay" id="game-over-overlay">
-            <div class="overlay-content">
-              <div class="overlay-icon">&#127942;</div>
-              <div class="overlay-title">RACE COMPLETE</div>
-              <div class="overlay-sub">Final Score: <span id="final-score">0</span></div>
-              <div class="overlay-hint">Press W or show both hands to race again</div>
-            </div>
-          </div>
-
-          <!-- On-screen Touch Controls (mobile) -->
-          <div class="touch-controls" id="touch-controls">
-            <div class="touch-left">
-              <button class="touch-btn touch-left-btn" id="touch-left">
-                <svg viewBox="0 0 24 24"><polyline points="15,4 7,12 15,20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-            </div>
-            <div class="touch-right">
-              <button class="touch-btn touch-right-btn" id="touch-right">
-                <svg viewBox="0 0 24 24"><polyline points="9,4 17,12 9,20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-            </div>
-            <div class="touch-bottom">
-              <button class="touch-btn touch-accel-btn" id="touch-accel">W</button>
-              <button class="touch-btn touch-auto-btn" id="touch-auto">A</button>
-            </div>
-            <div class="touch-mode" id="touch-mode-label">TOUCH</div>
+            <span class="key-desc">AUTO</span>
           </div>
         </div>
       </div>
 
-      <!-- Bottom Panels -->
+      <!-- Bottom info row -->
       <div class="bottom-panels">
         <div class="card card-calibrate">
-          <div class="panel-title">Calibration</div>
           <div class="calibrate-row">
             <span class="calibrate-label">SENSITIVITY</span>
             <input type="range" id="sensitivity-slider" min="10" max="100" value="75" class="slider" />
@@ -213,33 +128,147 @@
           </div>
         </div>
         <div class="card card-status">
-          <div class="panel-title">System Status</div>
           <div class="status-row">
             <span class="status-dot dot-green"></span>
-            <span class="status-label">Hand Tracking:</span>
+            <span class="status-label">Hand Tracking</span>
             <span class="status-val" id="status-hand">Inactive</span>
           </div>
           <div class="status-row">
             <span class="status-dot dot-green"></span>
-            <span class="status-label">Keyboard Control:</span>
+            <span class="status-label">Keyboard</span>
             <span class="status-val" id="status-keyboard">Active</span>
           </div>
           <div class="status-row">
             <span class="status-dot" id="status-camera-dot"></span>
-            <span class="status-label">Camera:</span>
+            <span class="status-label">Camera</span>
             <span class="status-val" id="status-camera">Inactive</span>
           </div>
           <div class="status-row">
             <span class="status-dot" id="status-auto-dot"></span>
-            <span class="status-label">Auto Accel:</span>
+            <span class="status-label">Auto Accel</span>
             <span class="status-val" id="status-auto">OFF</span>
           </div>
         </div>
-        <div class="card card-tips">
-          <div class="panel-title">Tips</div>
-          <div class="tip-row"><span class="tip-icon">&#10003;</span> Keep both hands in frame</div>
-          <div class="tip-row"><span class="tip-icon">&#10003;</span> Move hands left / right to steer</div>
-          <div class="tip-row"><span class="tip-icon">&#10003;</span> Hold hands closer/farther for control</div>
+      </div>
+    </aside>
+
+    <!-- RIGHT PANEL — Game Viewport -->
+    <section class="panel-right">
+      <div class="game-viewport" id="game-viewport">
+        <canvas id="game"></canvas>
+        <canvas id="game-overlay-canvas"></canvas>
+        <canvas id="hand-skeleton-canvas"></canvas>
+
+        <!-- Juice overlays -->
+        <div class="speed-vignette" id="speed-vignette"></div>
+        <div class="collision-flash" id="collision-flash"></div>
+
+        <!-- ─── HUD ─── -->
+        <div class="hud">
+          <!-- Top-left: Position + Lap -->
+          <div class="hud-tl">
+            <div class="hud-position">
+              <span class="hud-pos-val" id="hud-position">2</span>
+              <span class="hud-pos-slash">/</span>
+              <span class="hud-pos-total">6</span>
+            </div>
+            <div class="hud-lap-row">
+              <span class="hud-lap-label">LAP</span>
+              <span class="hud-lap-val" id="hud-lap">1/2</span>
+            </div>
+          </div>
+
+          <!-- Top-center: Race time -->
+          <div class="hud-tc">
+            <div class="hud-time-ring">
+              <div class="hud-time-val" id="hud-time">01:30</div>
+            </div>
+          </div>
+
+          <!-- Top-right: Score -->
+          <div class="hud-tr">
+            <div class="hud-score-label">SCORE</div>
+            <div class="hud-score-val" id="hud-best">0</div>
+          </div>
+
+          <!-- Bottom-right: Speed cluster -->
+          <div class="hud-br">
+            <div class="speed-cluster">
+              <svg class="speed-gauge" viewBox="0 0 120 70">
+                <!-- Gauge background arc -->
+                <path d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" stroke-linecap="round"/>
+                <!-- Gauge fill arc -->
+                <path id="speed-arc" d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"
+                  stroke-dasharray="157" stroke-dashoffset="157" style="transition: stroke-dashoffset 0.15s, stroke 0.3s"/>
+                <!-- Tick marks -->
+                <line x1="10" y1="65" x2="14" y2="60" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                <line x1="30" y1="30" x2="33" y2="35" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                <line x1="60" y1="18" x2="60" y2="23" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                <line x1="90" y1="30" x2="87" y2="35" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                <line x1="110" y1="65" x2="106" y2="60" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+              </svg>
+              <div class="speed-digital">
+                <span class="speed-num" id="hud-speed">0</span>
+                <span class="speed-unit">KM/H</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom-center: Track info -->
+          <div class="hud-bc">
+            <div class="hud-track-name">NIGHT DRIVE</div>
+          </div>
+        </div>
+
+        <!-- ─── Countdown Overlay ─── -->
+        <div class="countdown-overlay hidden" id="countdown-overlay">
+          <div class="countdown-num" id="countdown-num">3</div>
+        </div>
+
+        <!-- ─── Start Overlay ─── -->
+        <div class="game-overlay visible" id="game-overlay">
+          <div class="overlay-content">
+            <div class="overlay-badge">&#127939;</div>
+            <div class="overlay-title">READY TO RACE</div>
+            <div class="overlay-sub">Show both hands to start</div>
+            <div class="overlay-hint">Or press W to accelerate</div>
+          </div>
+        </div>
+
+        <!-- ─── Game Over Overlay ─── -->
+        <div class="game-overlay" id="game-over-overlay">
+          <div class="overlay-content overlay-results">
+            <div class="results-crown">&#127942;</div>
+            <div class="results-title">RACE COMPLETE</div>
+            <div class="results-score-row">
+              <span class="results-label">SCORE</span>
+              <span class="results-score" id="final-score">0</span>
+            </div>
+            <div class="results-divider"></div>
+            <div class="results-actions">
+              <button class="results-btn results-btn-primary" id="results-retry">RACE AGAIN</button>
+              <button class="results-btn results-btn-secondary" id="results-menu">MAIN MENU</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Touch Controls ─── -->
+        <div class="touch-controls" id="touch-controls">
+          <div class="touch-left">
+            <button class="touch-btn touch-left-btn" id="touch-left">
+              <svg viewBox="0 0 24 24"><polyline points="15,4 7,12 15,20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="touch-right">
+            <button class="touch-btn touch-right-btn" id="touch-right">
+              <svg viewBox="0 0 24 24"><polyline points="9,4 17,12 9,20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="touch-bottom">
+            <button class="touch-btn touch-accel-btn" id="touch-accel">GAS</button>
+            <button class="touch-btn touch-auto-btn" id="touch-auto">AUTO</button>
+          </div>
+          <div class="touch-mode" id="touch-mode-label">TOUCH</div>
         </div>
       </div>
     </section>

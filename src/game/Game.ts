@@ -36,7 +36,7 @@ export class Game {
   private segments: THREE.Group[] = [];
   private obstacles: THREE.Group[] = [];
 
-  private speed = 0;
+  private _speed = 0;
   private baseSpeed = 0.2;
   private score = 0;
   private raceTime = 0;
@@ -93,6 +93,7 @@ export class Game {
   get handsDetected(): number { return this._handsDetected; }
   get steerCenterX(): number { return this.centerX; }
   get justCollided(): boolean { return this._justCollided; }
+  get speed(): number { return this._speed; }
 
   // Progressive difficulty: 0 → 1 over 60s of race time
   private get difficulty(): number {
@@ -111,7 +112,7 @@ export class Game {
 
   getState(): GameState {
     return {
-      speed: this.speed,
+      speed: this._speed,
       score: this.score,
       raceTime: this.raceTime,
       bestTime: this.bestTime === Infinity ? 0 : this.bestTime,
@@ -128,7 +129,7 @@ export class Game {
   }
 
   getSpeedKmh(): number {
-    return Math.floor(this.speed * 120);
+    return Math.floor(this._speed * 120);
   }
 
   setHandData(centerX: number, handsDetected: number): void {
@@ -148,7 +149,7 @@ export class Game {
     this._started = true;
     this._gameOver = false;
     this.score = 0;
-    this.speed = this.baseSpeed;
+    this._speed = this.baseSpeed;
     this.raceTime = 0;
     this.lap = 1;
     this.position = 2;
@@ -482,11 +483,11 @@ export class Game {
 
     // Speed
     if (this._handsDetected >= 2) {
-      this.speed = Math.min(this.maxSpeed, this.speed + 0.004 * dt);
-      this.score += this.speed * 2 * dt;
+      this._speed = Math.min(this.maxSpeed, this._speed + 0.004 * dt);
+      this.score += this._speed * 2 * dt;
       this.raceTime += delta;
     } else {
-      this.speed = Math.max(0.05, this.speed - 0.007 * dt);
+      this._speed = Math.max(0.05, this._speed - 0.007 * dt);
     }
 
     // Game over after 90 seconds
@@ -532,7 +533,7 @@ export class Game {
     this.headlight2.position.x = this.cameraX + 2.5;
 
     // Move tunnel segments
-    const moveAmount = this.speed * dt;
+    const moveAmount = this._speed * dt;
     for (const seg of this.segments) {
       seg.position.z += moveAmount;
       if (seg.position.z > SEG_LEN) {
@@ -542,7 +543,7 @@ export class Game {
 
     // Spawn obstacles
     this.spawnTimer += dt;
-    const interval = Math.max(18, this.spawnInterval - this.speed * 30);
+    const interval = Math.max(18, this.spawnInterval - this._speed * 30);
     if (this.spawnTimer >= interval && this._handsDetected >= 2 && this.raceTime > 3) {
       this.spawnTimer = 0;
       this.spawnCar();
