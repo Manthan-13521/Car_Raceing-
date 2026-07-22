@@ -51,7 +51,7 @@ export class Game {
   private centerX = 0.5;
   private _handsDetected = 0;
   private cameraX = 0;
-  private smoothSteer = new SmoothFilter(0.12, 0);
+  private smoothSteer = new SmoothFilter(0.45, 0);
   private sensitivity = 1.0;
 
   private spawnTimer = 0;
@@ -64,6 +64,7 @@ export class Game {
   private headlight2!: THREE.PointLight;
 
   private handSkeleton: Landmark[] = [];
+  private cockpitGroup: THREE.Group;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.scene = new THREE.Scene();
@@ -84,7 +85,7 @@ export class Game {
     this.setupLights();
     this.buildRoad();
     this.buildSegments();
-    this.buildCockpit();
+    this.cockpitGroup = this.buildCockpit();
     this.lastFrameTime = performance.now();
   }
 
@@ -143,6 +144,11 @@ export class Game {
 
   setSensitivity(val: number): void {
     this.sensitivity = val;
+  }
+
+  setGameOver(): void {
+    this._gameOver = true;
+    this._started = false;
   }
 
   start(): void {
@@ -337,7 +343,9 @@ export class Game {
     }
   }
 
-  private buildCockpit(): void {
+  private buildCockpit(): THREE.Group {
+    const g = new THREE.Group();
+
     // Car hood — dark but visible
     const hoodMat = new THREE.MeshStandardMaterial({
       color: 0x1e2838,
@@ -349,7 +357,7 @@ export class Game {
       hoodMat,
     );
     hood.position.set(0, 0.06, -1.5);
-    this.scene.add(hood);
+    g.add(hood);
 
     // Dashboard panel — minimal
     const dashMat = new THREE.MeshStandardMaterial({
@@ -362,7 +370,7 @@ export class Game {
       dashMat,
     );
     dash.position.set(0, 0.5, -0.9);
-    this.scene.add(dash);
+    g.add(dash);
 
     // Dashboard screen — green glow
     const screenMat = new THREE.MeshBasicMaterial({ color: 0x00ff41 });
@@ -371,7 +379,7 @@ export class Game {
       screenMat,
     );
     screen.position.set(0, 0.58, -0.68);
-    this.scene.add(screen);
+    g.add(screen);
 
     // Steering wheel — small, subtle
     const wheelMat = new THREE.MeshStandardMaterial({
@@ -385,7 +393,7 @@ export class Game {
     );
     wheel.position.set(0, 0.8, -0.6);
     wheel.rotation.x = 0.5;
-    this.scene.add(wheel);
+    g.add(wheel);
 
     // Side pillars — thin
     const pillarMat = new THREE.MeshStandardMaterial({
@@ -399,8 +407,11 @@ export class Game {
         pillarMat,
       );
       p.position.set(side * 1.3, 1.3, -0.5);
-      this.scene.add(p);
+      g.add(p);
     }
+
+    this.scene.add(g);
+    return g;
   }
 
   private spawnCar(): void {
@@ -504,10 +515,11 @@ export class Game {
       ),
     );
 
-    // Steering — smooth with dead zone
+    // Steering — smooth with non-linear curve for precision
     const rawSteer = (this.centerX - 0.5) * 2 * this.sensitivity;
-    const deadZone = 0.08;
-    const steerInput = Math.abs(rawSteer) < deadZone ? 0 : (rawSteer > 0 ? (rawSteer - deadZone) / (1 - deadZone) : (rawSteer + deadZone) / (1 - deadZone));
+    const deadZone = 0.02;
+    let steerInput = Math.abs(rawSteer) < deadZone ? 0 : (rawSteer > 0 ? (rawSteer - deadZone) / (1 - deadZone) : (rawSteer + deadZone) / (1 - deadZone));
+    steerInput = Math.sign(steerInput) * Math.pow(Math.abs(steerInput), 0.85);
     const targetX = steerInput * 5;
     this.cameraX = this.smoothSteer.update(targetX);
     this.cameraX = Math.max(-4, Math.min(4, this.cameraX));
@@ -527,6 +539,9 @@ export class Game {
     this.camera.position.x = this.cameraX + shakeX;
     this.camera.position.y = CAM_Y + shakeY;
     this.camera.rotation.z = this.cameraX * -0.025 + rollExtra;
+
+    // Cockpit follows camera — car body stays with the driver view
+    this.cockpitGroup.position.x = this.cameraX;
 
     // Headlights follow
     this.headlight1.position.x = this.cameraX - 2.5;

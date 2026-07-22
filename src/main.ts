@@ -3,6 +3,11 @@ import { KeyboardHandler, GameKeys } from './input/Keyboard';
 import { Game, GameState } from './game/Game';
 
 // ─── DOM refs ───────────────────────────────────────────────────────
+const landing = document.getElementById('landing')!;
+const landingPlay = document.getElementById('landing-play')!;
+const landingSettings = document.getElementById('landing-settings')!;
+const landingLearn = document.getElementById('landing-learn')!;
+const navTitle = document.querySelector('.nav-title') as HTMLElement;
 const video = document.getElementById('webcam') as HTMLVideoElement;
 const gameCanvas = document.getElementById('game') as HTMLCanvasElement;
 const camOverlay = document.getElementById('cam-overlay') as HTMLCanvasElement;
@@ -53,6 +58,18 @@ const collisionFlash = document.getElementById('collision-flash')!;
 
 const resultsRetry = document.getElementById('results-retry')!;
 const resultsMenu = document.getElementById('results-menu')!;
+
+const menuOverlay = document.getElementById('menu-overlay')!;
+const howtoplayOverlay = document.getElementById('howtoplay-overlay')!;
+const settingsOverlay = document.getElementById('settings-overlay')!;
+const menuStart = document.getElementById('menu-start')!;
+const menuHowtoplay = document.getElementById('menu-howtoplay')!;
+const menuSettings = document.getElementById('menu-settings')!;
+const htpBack = document.getElementById('htp-back')!;
+const settingsBack = document.getElementById('settings-back')!;
+const menuSensitivitySlider = document.getElementById('menu-sensitivity-slider') as HTMLInputElement;
+const menuSensitivityValue = document.getElementById('menu-sensitivity-value')!;
+const menuAutoToggle = document.getElementById('menu-auto-toggle')!;
 
 const panelLeft = document.getElementById('panel-left')!;
 const panelToggle = document.getElementById('panel-toggle')!;
@@ -400,6 +417,7 @@ function onKeys(newKeys: GameKeys): void {
     if (keys.up) {
       game.setHandData(game.steerCenterX, 2);
       if (!game.started || game.gameOver) {
+        if (menuOverlay.classList.contains('visible')) return;
         cancelCountdown();
         startCountdown(() => {
           game.start();
@@ -430,11 +448,13 @@ function onHandData(data: HandData): void {
   }
 
   if (!game.started && data.handsDetected >= 2 && !countdownActive) {
-    startCountdown(() => {
-      game.start();
-      document.getElementById('game-overlay')!.classList.remove('visible');
-      document.getElementById('game-over-overlay')!.classList.remove('visible');
-    });
+    landing.classList.remove('visible');
+    if (menuOverlay.classList.contains('visible')) return;
+    if (howtoplayOverlay.classList.contains('visible')) return;
+    if (settingsOverlay.classList.contains('visible')) return;
+    menuOverlay.classList.add('visible');
+    document.getElementById('game-overlay')!.classList.remove('visible');
+    document.getElementById('game-over-overlay')!.classList.remove('visible');
   }
 
   if (game.gameOver && data.handsDetected >= 2 && !countdownActive) {
@@ -472,8 +492,12 @@ function gameLoop(): void {
       }
       game.setHandData(steerX, 2);
       if (!game.started) {
+        if (menuOverlay.classList.contains('visible')) return;
         startCountdown(() => {
           game.start();
+          menuOverlay.classList.remove('visible');
+          howtoplayOverlay.classList.remove('visible');
+          settingsOverlay.classList.remove('visible');
           document.getElementById('game-overlay')!.classList.remove('visible');
           document.getElementById('game-over-overlay')!.classList.remove('visible');
         });
@@ -518,11 +542,16 @@ function gameLoop(): void {
     if (state.started && !state.gameOver) {
       startOvr.classList.remove('visible');
       gameOverOvr.classList.remove('visible');
+      menuOverlay.classList.remove('visible');
+      howtoplayOverlay.classList.remove('visible');
+      settingsOverlay.classList.remove('visible');
     } else if (state.gameOver) {
       startOvr.classList.remove('visible');
       gameOverOvr.classList.add('visible');
       finalScoreEl.textContent = `${Math.floor(state.score)}`;
-    } else {
+    } else if (!menuOverlay.classList.contains('visible') &&
+               !howtoplayOverlay.classList.contains('visible') &&
+               !settingsOverlay.classList.contains('visible')) {
       startOvr.classList.add('visible');
       gameOverOvr.classList.remove('visible');
     }
@@ -537,7 +566,7 @@ function setupSensitivity(): void {
     const val = parseInt(sensitivitySlider.value, 10);
     sensitivityValue.textContent = `${val}%`;
     const alpha = val / 100;
-    if (tracker) tracker.setSmoothing(1 - alpha * 0.85);
+    if (tracker) tracker.setSmoothing(1 - alpha * 0.6);
     if (game) game.setSensitivity(alpha);
   });
 }
@@ -571,9 +600,13 @@ function setupTouchControls(): void {
       else if (touchRightHeld) steerX = 1;
       game.setHandData(steerX, 2);
       if (!game.started || game.gameOver) {
+        if (menuOverlay.classList.contains('visible')) return;
         cancelCountdown();
         startCountdown(() => {
           game.start();
+          menuOverlay.classList.remove('visible');
+          howtoplayOverlay.classList.remove('visible');
+          settingsOverlay.classList.remove('visible');
           document.getElementById('game-overlay')!.classList.remove('visible');
           document.getElementById('game-over-overlay')!.classList.remove('visible');
         });
@@ -770,6 +803,69 @@ async function init(): Promise<void> {
     }
   });
 
+  // ─── Menu flow ──────────────────────────────────────────────
+  function showMenu(screen: 'menu' | 'howtoplay' | 'settings' | 'game'): void {
+    menuOverlay.classList.toggle('visible', screen === 'menu');
+    howtoplayOverlay.classList.toggle('visible', screen === 'howtoplay');
+    settingsOverlay.classList.toggle('visible', screen === 'settings');
+    document.getElementById('game-overlay')!.classList.toggle('visible', screen === 'game');
+  }
+
+  menuStart.addEventListener('click', () => {
+    showMenu('game');
+    const startOvr = document.getElementById('game-overlay')!;
+    startOvr.classList.add('visible');
+    document.getElementById('game-over-overlay')!.classList.remove('visible');
+    cancelCountdown();
+    if (autoAccelerate) {
+      startCountdown(() => {
+        game.start();
+        menuOverlay.classList.remove('visible');
+        howtoplayOverlay.classList.remove('visible');
+        settingsOverlay.classList.remove('visible');
+        document.getElementById('game-overlay')!.classList.remove('visible');
+        document.getElementById('game-over-overlay')!.classList.remove('visible');
+      });
+    }
+  });
+
+  menuHowtoplay.addEventListener('click', () => showMenu('howtoplay'));
+  htpBack.addEventListener('click', () => showMenu('menu'));
+
+  menuSettings.addEventListener('click', () => {
+    menuSensitivitySlider.value = sensitivitySlider.value;
+    menuSensitivityValue.textContent = `${sensitivitySlider.value}%`;
+    menuAutoToggle.textContent = autoAccelerate ? 'ON' : 'OFF';
+    menuAutoToggle.classList.toggle('active', autoAccelerate);
+    showMenu('settings');
+  });
+
+  settingsBack.addEventListener('click', () => {
+    const val = parseInt(menuSensitivitySlider.value, 10);
+    sensitivitySlider.value = `${val}`;
+    sensitivityValue.textContent = `${val}%`;
+    const alpha = val / 100;
+    if (tracker) tracker.setSmoothing(1 - alpha * 0.85);
+    if (game) game.setSensitivity(alpha);
+    showMenu('menu');
+  });
+
+  menuSensitivitySlider.addEventListener('input', () => {
+    const val = parseInt(menuSensitivitySlider.value, 10);
+    menuSensitivityValue.textContent = `${val}%`;
+  });
+
+  menuAutoToggle.addEventListener('click', () => {
+    autoAccelerate = !autoAccelerate;
+    menuAutoToggle.textContent = autoAccelerate ? 'ON' : 'OFF';
+    menuAutoToggle.classList.toggle('active', autoAccelerate);
+    const touchAuto = document.getElementById('touch-auto');
+    if (touchAuto) touchAuto.classList.toggle('active', autoAccelerate);
+    const uBox = document.querySelector('.key-box[data-key="u"]');
+    if (uBox) uBox.classList.toggle('active', autoAccelerate);
+    updateStatus();
+  });
+
   // Results buttons
   resultsRetry.addEventListener('click', () => {
     cancelCountdown();
@@ -782,12 +878,45 @@ async function init(): Promise<void> {
   resultsMenu.addEventListener('click', () => {
     cancelCountdown();
     document.getElementById('game-over-overlay')!.classList.remove('visible');
-    document.getElementById('game-overlay')!.classList.add('visible');
+    landing.classList.add('visible');
   });
 
   faceLabel.style.display = 'none';
   handLeftLabel.style.display = 'none';
   handRightLabel.style.display = 'none';
+
+  // ─── Landing page controls ────────────────────────────────────
+  landingPlay.addEventListener('click', () => {
+    landing.classList.remove('visible');
+    document.getElementById('menu-overlay')!.classList.add('visible');
+    document.getElementById('howtoplay-overlay')!.classList.remove('visible');
+    document.getElementById('settings-overlay')!.classList.remove('visible');
+    document.getElementById('game-overlay')!.classList.remove('visible');
+    document.getElementById('game-over-overlay')!.classList.remove('visible');
+  });
+
+  landingSettings.addEventListener('click', () => {
+    landing.classList.remove('visible');
+    document.getElementById('menu-overlay')!.classList.remove('visible');
+    document.getElementById('settings-overlay')!.classList.add('visible');
+  });
+
+  landingLearn.addEventListener('click', () => {
+    landing.classList.remove('visible');
+    document.getElementById('menu-overlay')!.classList.remove('visible');
+    document.getElementById('howtoplay-overlay')!.classList.add('visible');
+  });
+
+  navTitle.addEventListener('click', () => {
+    landing.classList.add('visible');
+    if (game) game.setGameOver();
+    document.getElementById('game-over-overlay')!.classList.remove('visible');
+    document.getElementById('game-overlay')!.classList.add('visible');
+    document.getElementById('menu-overlay')!.classList.remove('visible');
+    document.getElementById('howtoplay-overlay')!.classList.remove('visible');
+    document.getElementById('settings-overlay')!.classList.remove('visible');
+  });
+  navTitle.style.cursor = 'pointer';
 
   tracker = new HandTracker(video, onHandData);
   try {
