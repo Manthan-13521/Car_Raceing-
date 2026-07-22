@@ -1,121 +1,164 @@
 # Virtual Steering
 
-A real-time hand-gesture-based virtual steering wheel that uses a webcam to detect hand positions and translates them into driving controls (accelerate, steer left/right).
-
-## How the Original Python Project Works
-
-### Core Concept
-
-The original `Steering.py` uses **MediaPipe** (via the `cvzone` wrapper) to track both hands through a webcam feed. The center point between the two index-finger tips determines the steering direction, and the system automatically accelerates when both hands are visible.
-
-### Control Logic
-
-| Condition | Action |
-|-----------|--------|
-| Both hands detected | Press **W** (accelerate) |
-| Center of index fingers < 40% of frame width | Press **A** (steer left) |
-| Center of index fingers > 60% of frame width | Press **D** (steer right) |
-| Center between 40%-60% | Release A/D (go straight) |
-| 0 or 1 hand detected | Release all keys (stop) |
-
-### Key Parameters
-
-- `LEFT_THRESHOLD = 0.40` — Normalized X position below which steering turns left
-- `RIGHT_THRESHOLD = 0.60` — Normalized X position above which steering turns right
-- `SMOOTHING_ALPHA = 0.15` — Exponential Moving Average smoothing factor to reduce jitter
-- `DETECTION_CONFIDENCE = 0.8` — MediaPipe detection confidence threshold
-
-### Technical Stack (Original)
-
-- **Python 3.12** with OpenCV for video capture
-- **MediaPipe** / **cvzone** for hand landmark detection
-- **pynput** for macOS keyboard simulation
-- Webcam feed displayed with OpenCV GUI overlay showing FPS, direction, and acceleration status
-
-### Limitations of the Original
-
-1. **No visual game** — It only simulates key presses (W, A, D). You need a separate game running.
-2. **macOS-only** — Keyboard simulation via `pynput` is platform-specific.
-3. **No feedback** — No visual representation of the "car" or steering wheel.
+A browser-based hand-gesture racing game — drive by moving your hands in front of the webcam. Uses **MediaPipe Hands** for real-time hand tracking and **Three.js** for 3D rendering in a cyberpunk tunnel circuit.
 
 ---
 
-## Web Game Specification (This Project)
+## Demo
 
-### Overview
+Open the app, show both hands, and steer left/right. The car accelerates automatically when both hands are detected. No controller, no keyboard required (though both are supported as fallback).
 
-A browser-based driving game controlled entirely by hand gestures via the webcam. The game renders a car on a procedurally generated road, and the player steers by moving both hands left/right in front of the camera.
+---
 
-### Tech Stack
+## Features
 
-- **Vite** — Fast dev server with HMR (`npm run dev`)
-- **TypeScript** — Type-safe development
-- **MediaPipe Hands** (`@mediapipe/hands` + `@mediapipe/camera_utils`) — Hand landmark detection in the browser
-- **HTML5 Canvas** — Game rendering (no external game engine needed)
+### Hand Tracking Controls
+- **Show both hands** → car accelerates
+- **Move hands left/right** → steer (palm-center tracked for stability)
+- **Hide hands** → car slows down
+- Sensitivity slider adjusts responsiveness
 
-### Game Mechanics
+### Keyboard Controls
+| Key | Action |
+|-----|--------|
+| `W` / `Arrow Up` | Accelerate |
+| `A` / `Arrow Left` | Steer left |
+| `D` / `Arrow Right` | Steer right |
+| `U` | Toggle auto-accelerate |
 
-1. **Acceleration**: Automatic when both hands are detected (like the original pressing W)
-2. **Steering**: Center point between both index-finger tips maps to:
-   - **Left** (center < 40% of frame) → car steers left
-   - **Straight** (40%–60%) → car goes straight
-   - **Right** (center > 60%) → car steers right
-3. **Braking**: When hands are lost (0 or 1 hand), the car slows down
-4. **Road**: Procedurally generated endless road with lanes and curves
+### Touch / Mobile Controls
+- On-screen buttons: gas, left, right, auto-accelerate toggle
+- Double-tap the mode label to switch between touch and gyroscope steering
+- Auto-shown on touch devices
 
-### Project Structure
+### Gameplay
+- Endless tunnel with obstacles (AI cars to dodge)
+- 90-second race duration
+- Score based on speed + time
+- Position ranking against AI opponents
+- Progressive difficulty: speed cap and obstacle frequency increase over time
+- Collision = race over (with screen shake + flash)
+
+### Landing Page (Main Menu)
+- **START RACE** — begins the game
+- **HOW TO PLAY** — explains hand tracking, keyboard, and obstacle rules
+- **SETTINGS** — sensitivity slider and auto-accelerate toggle
+
+### HUD (Heads-Up Display)
+- Speed (digital + analog gauge with color-coded zones)
+- Position / total cars
+- Lap counter
+- Race timer (flashes red when under 10s)
+- Score
+
+### Visual / Juice
+- 3D tunnel with neon strips, wall arrows, lane markings, ceiling lights
+- Cockpit view with hood, dashboard, steering wheel (moves with steering)
+- Headlights that follow the car
+- Speed lines at high speed
+- Speed vignette effect
+- Collision flash + screen shake
+- Engine sound (sawtooth oscillator, pitch tracks speed)
+- Collision sound effect
+- Countdown animation (3, 2, 1, GO)
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Build | Vite + TypeScript |
+| 3D Engine | Three.js |
+| Hand Tracking | MediaPipe Hands (`@mediapipe/hands`) |
+| Camera | MediaPipe Camera Utils (`@mediapipe/camera_utils`) |
+| Styling | CSS custom properties (Orbitron / Rajdhani / Inter fonts) |
+
+---
+
+## Project Structure
 
 ```
-virtual-steering-web/
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-├── src/
-│   ├── main.ts          — Entry point, sets up canvas and starts the loop
-│   ├── game/
-│   │   ├── Game.ts      — Main game loop, state management
-│   │   ├── Car.ts       — Car entity (position, speed, rendering)
-│   │   └── Road.ts      — Road generation and rendering
-│   ├── input/
-│   │   └── HandTracker.ts  — MediaPipe hand tracking wrapper
-│   └── utils/
-│       └── smoothing.ts — EMA filter for gesture data
-└── public/
-    └── (static assets if any)
+src/
+├── main.ts               Entry point, UI, menu flow, game loop orchestration
+├── style.css             Full design system + all UI styles
+├── game/
+│   └── Game.ts           Three.js scene, physics, steering, collision, spawning
+├── input/
+│   ├── HandTracker.ts    MediaPipe wrapper, palm-center averaging, EMA smoothing
+│   └── Keyboard.ts       Keyboard input handler
+└── utils/
+    └── smoothing.ts      Generic EMA smooth filter
 ```
 
 ### Data Flow
 
 ```
-Webcam → MediaPipe Hands → Landmark positions
+Webcam → MediaPipe Hands → Palm-center landmarks (wrist + index MCP + middle MCP)
                               ↓
-                        Compute center of index fingertips
+                        EMA Smoothing (adaptive)
                               ↓
-                        EMA Smoothing
+                        Map to steering input (non-linear curve + dead zone)
                               ↓
-                        Map to steering direction (A/D)
+                        Update camera + cockpit position
                               ↓
-                        Update car position
+                        Move tunnel segments + obstacle cars
                               ↓
-                        Render frame (road + car + overlay)
+                        Render frame (Three.js)
+                              ↓
+                        Update HUD + juice effects
 ```
 
-### How to Run
+---
+
+## How to Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-### Permissions
+Open the URL shown in the terminal (usually `http://localhost:5173`).
 
-The browser will request camera access. The app works on any OS with a browser that supports WebRTC (Chrome, Edge, Firefox, Safari).
+### Production Build
 
-### Future Enhancements (Ideas)
+```bash
+npm run build
+npm run preview
+```
 
-- Speed control (bring hands closer/farther to accelerate/brake)
-- Obstacles / other cars
-- Score / distance tracking
-- Mobile support with touch fallback
-- Steering wheel visual overlay in the camera feed
+---
+
+## Controls Reference
+
+### Steering Accuracy
+- Palm center (average of wrist + index MCP + middle MCP) is used instead of fingertips for stable, jitter-free tracking
+- Non-linear steering curve (`pow(0.85)`) gives fine precision near center while maintaining full range at edges
+- Double EMA smoothing with configurable sensitivity
+- Dead zone (2%) prevents drift when hands are centered
+
+### Input Priority
+1. Touch controls (if active)
+2. Gyroscope (if enabled on mobile)
+3. Keyboard
+4. Hand tracking (always active as base layer)
+
+---
+
+## Browser Requirements
+
+- Chrome / Edge / Firefox / Safari (desktop or mobile)
+- WebRTC support for camera access
+- Camera permission must be granted
+
+---
+
+## UI/UX Design
+
+Built following racing game UI/UX principles from the `GAME UI:UX SKILL` reference kit:
+- Dark theme with neon accents (red = primary, gold = accent, blue = speed, green = active)
+- Orbitron font for display/data, Rajdhani for HUD labels
+- Glanceable HUD: position top-left, timer top-center, score top-right, speed bottom-right
+- "Quiet by default, loud on the moment" — HUD stays calm during normal driving, uses color shifts and glow for significant events
+- Touch targets sized for thumbs (44px+)
+- Reduced-motion support via `prefers-reduced-motion`
